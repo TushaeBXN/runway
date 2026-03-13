@@ -1,0 +1,46 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model AgentRun {
+  id        String   @id @default(cuid())
+  agentId   String
+  agentName String
+  status    String
+  output    String   @db.Text
+  ranAt     DateTime @default(now())
+}
+
+model GrantOpportunity {
+  id           String   @id @default(cuid())
+  title        String
+  funder       String
+  missionScore Int
+  deadline     String
+  amount       String
+  url          String?
+  hook         String   @db.Text
+  kpis         Json
+  budget       Json
+  checklist    Json
+  rawOutput    String   @db.Text
+  createdAt    DateTime @default(now())
+}
+
+model ActivityLog {
+  id      String   @id @default(cuid())
+  time    DateTime @default(now())
+  agentId String
+  label   String
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  role      String
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+}
