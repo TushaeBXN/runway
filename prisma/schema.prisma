@@ -6,6 +6,41 @@ datasource db {
   provider = "sqlite"
 }
 
+model User {
+  id           String        @id @default(cuid())
+  name         String?
+  email        String        @unique
+  password     String?
+  createdAt    DateTime      @default(now())
+  orgProfile   OrgProfile?
+  subscription Subscription?
+}
+
+model OrgProfile {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  orgName    String
+  location   String
+  mission    String
+  focusAreas String
+  website    String?
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Subscription {
+  id                   String    @id @default(cuid())
+  userId               String    @unique
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  stripePriceId        String?
+  status               String    @default("trialing")
+  trialEndsAt          DateTime?
+  currentPeriodEnd     DateTime?
+  createdAt            DateTime  @default(now())
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
 model AgentRun {
   id        String   @id @default(cuid())
   agentId   String
