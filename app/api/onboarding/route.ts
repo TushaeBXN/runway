@@ -30,5 +30,13 @@ export async function POST(req: Request) {
     },
   });
 
+  // Fire-and-forget market research agent in background
+  const orgProfile = { orgName, location, mission, focusAreas: Array.isArray(focusAreas) ? focusAreas.join(", ") : focusAreas, website };
+  import("@/lib/agents/marketResearchAgent")
+    .then(({ runMarketResearchAgent }) =>
+      runMarketResearchAgent(orgProfile, userId)
+    )
+    .catch(console.error);
+
   return NextResponse.json({ ok: true });
 }

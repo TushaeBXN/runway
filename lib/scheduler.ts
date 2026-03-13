@@ -8,6 +8,29 @@ import { prisma } from "@/lib/prisma";
 import { getResend } from "@/lib/resend";
 import { getProvider } from "@/lib/llm";
 
+async function markAgentTasksCompleted(agentId: string, label: string) {
+  try {
+    const tasks = await prisma.task.findMany({
+      where: { agentId, status: "in_progress" },
+    });
+
+    for (const task of tasks) {
+      await prisma.task.update({
+        where: { id: task.id },
+        data: { status: "completed", completedAt: new Date() },
+      });
+      await prisma.activityLog.create({
+        data: {
+          agentId,
+          label: `Task completed: ${task.title} (${label})`,
+        },
+      });
+    }
+  } catch (err) {
+    console.error(`[Scheduler] Failed to mark tasks for ${agentId}:`, err);
+  }
+}
+
 export async function runNightlyLoop(): Promise<void> {
   const date = new Date().toLocaleDateString("en-US", {
     weekday: "long",
@@ -50,6 +73,11 @@ export async function runNightlyLoop(): Promise<void> {
   }
 
   console.log("[Runway] Secondary agents complete.");
+
+  // Mark tasks completed for each agent
+  await markAgentTasksCompleted("marketingAgent", "Marketing agent nightly run");
+  await markAgentTasksCompleted("devAgent", "Dev agent nightly run");
+  await markAgentTasksCompleted("inboxAgent", "Inbox agent nightly run");
 
   // Step 3: Grant Architect (independent)
   const grantOutput = await runGrantArchitectAgent();
