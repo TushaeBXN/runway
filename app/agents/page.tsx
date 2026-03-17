@@ -11,31 +11,54 @@ interface AgentRun {
   ranAt: string | null;
 }
 
-const AGENT_META: Record<string, { icon: string; label: string; description: string }> = {
+const AGENT_META: Record<string, { icon: string; label: string; description: string; hours: string }> = {
   ceoAgent: {
     icon: "◆",
     label: "CEO Agent",
-    description: "Sets nightly priorities and delegates tasks to all agents",
+    description: "Sets morning priorities and delegates tasks to all agents",
+    hours: "Business hours · 9 AM",
   },
   marketingAgent: {
     icon: "◈",
     label: "Marketing Agent",
     description: "Drafts X, LinkedIn, and Meta ad content",
+    hours: "Business hours · 9 AM",
   },
   devAgent: {
     icon: "⊞",
     label: "Dev Agent",
     description: "Reviews platform health and prioritizes code improvements",
+    hours: "Business hours · 9 AM",
   },
   inboxAgent: {
     icon: "✉",
     label: "Inbox Agent",
     description: "Drafts professional email replies and flags items for review",
+    hours: "Business hours · 9 AM",
   },
   grantArchitectAgent: {
     icon: "★",
     label: "Grant Architect",
     description: "Researches grant opportunities and builds full strategy memos",
+    hours: "Business hours · 9 AM",
+  },
+  upworkScoutAgent: {
+    icon: "◎",
+    label: "Upwork Scout",
+    description: "Scans Upwork off-hours for jobs the team can complete autonomously",
+    hours: "Off-hours · 5 PM",
+  },
+  jobExecutorAgent: {
+    icon: "⚡",
+    label: "Job Executor",
+    description: "Completes top-scored Upwork jobs and logs earnings to Hardware Fund",
+    hours: "Off-hours · 5 PM",
+  },
+  hardwareFundAgent: {
+    icon: "◉",
+    label: "Hardware Fund",
+    description: "Tracks cumulative earnings and progress toward hardware upgrade tiers",
+    hours: "Off-hours · 5 PM",
   },
 };
 
@@ -68,7 +91,7 @@ export default function AgentsPage() {
           Agents
         </h1>
         <p style={{ color: "#6E6E73", fontSize: 14, marginTop: 4 }}>
-          5 agents — run nightly at 2:00 AM or on demand
+          8 agents — business hours 9 AM · off-hours Upwork loop 5 PM
         </p>
       </div>
 
@@ -76,6 +99,7 @@ export default function AgentsPage() {
         {Object.entries(AGENT_META).map(([agentId, meta]) => {
           const run = runs.find((r) => r.agentId === agentId);
           const isGrant = agentId === "grantArchitectAgent";
+          const isOffHours = ["upworkScoutAgent", "jobExecutorAgent", "hardwareFundAgent"].includes(agentId);
 
           let taskSummary = "Not yet run";
           if (run && run.output) {
@@ -111,12 +135,12 @@ export default function AgentsPage() {
                   width: 44,
                   height: 44,
                   borderRadius: 12,
-                  background: isGrant ? "#1D1D1F" : "#F5F5F7",
+                  background: isGrant ? "#1D1D1F" : isOffHours ? "#FF950018" : "#F5F5F7",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   fontSize: 18,
-                  color: isGrant ? "#fff" : "#1D1D1F",
+                  color: isGrant ? "#fff" : isOffHours ? "#FF9500" : "#1D1D1F",
                   flexShrink: 0,
                 }}
               >
@@ -139,6 +163,7 @@ export default function AgentsPage() {
                   </span>
                 </div>
                 <p style={{ fontSize: 13, color: "#6E6E73", marginBottom: 4 }}>{meta.description}</p>
+                <p style={{ fontSize: 12, color: isOffHours ? "#FF9500" : "#8E8E93", marginBottom: 2 }}>{meta.hours}</p>
                 <p style={{ fontSize: 13, color: "#8E8E93" }}>{taskSummary}</p>
               </div>
               <div style={{ textAlign: "right", flexShrink: 0 }}>

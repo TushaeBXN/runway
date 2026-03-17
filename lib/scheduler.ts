@@ -4,6 +4,9 @@ import { runMarketingAgent } from "@/lib/agents/marketingAgent";
 import { runDevAgent } from "@/lib/agents/devAgent";
 import { runInboxAgent } from "@/lib/agents/inboxAgent";
 import { runGrantArchitectAgent } from "@/lib/agents/grantArchitectAgent";
+import { runUpworkScoutAgent } from "@/lib/agents/upworkScoutAgent";
+import { runJobExecutorAgent } from "@/lib/agents/jobExecutorAgent";
+import { runHardwareFundAgent } from "@/lib/agents/hardwareFundAgent";
 import { prisma } from "@/lib/prisma";
 import { getResend } from "@/lib/resend";
 import { getProvider } from "@/lib/llm";
@@ -182,18 +185,57 @@ export async function runNightlyLoop(): Promise<void> {
   console.log("[Runway] Nightly loop complete.");
 }
 
+// ── Off-Hours Loop (5:00 PM – 9:00 AM) ──────────────────────────
+// Agents scan Upwork, execute jobs, and update the hardware fund.
+export async function runOffHoursLoop(): Promise<void> {
+  const date = new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  console.log(`[Runway] Off-hours loop started — ${date}`);
+
+  // Step 1: Scout new Upwork jobs
+  const scoutOutput = await runUpworkScoutAgent();
+  console.log(`[Runway] Upwork Scout complete — ${scoutOutput.jobs.length} jobs found`);
+
+  // Step 2: Execute top-scoring pending jobs
+  const execResults = await runJobExecutorAgent();
+  const earned = execResults
+    .filter((r) => r.status === "completed")
+    .reduce((sum, r) => sum + r.estimatedEarnings, 0);
+  console.log(`[Runway] Job Executor complete — $${earned.toFixed(2)} earned`);
+
+  // Step 3: Update hardware fund status
+  const fundStatus = await runHardwareFundAgent();
+  console.log(`[Runway] Hardware Fund: $${fundStatus.totalEarned.toFixed(2)} total — ${fundStatus.progressToNextTier}% to next tier`);
+
+  console.log("[Runway] Off-hours loop complete.");
+}
+
 let scheduled = false;
 
 export function initScheduler(): void {
   if (scheduled) return;
   scheduled = true;
 
-  cron.schedule("0 2 * * *", () => {
-    console.log("[Runway] Cron triggered — running nightly loop");
+  // Business hours loop — 9:00 AM daily
+  cron.schedule("0 9 * * *", () => {
+    console.log("[Runway] Cron triggered — running morning business loop (9:00 AM)");
     runNightlyLoop().catch((err) =>
-      console.error("[Runway] Nightly loop error:", err)
+      console.error("[Runway] Morning loop error:", err)
     );
   });
 
-  console.log("[Runway] Scheduler registered — will run nightly at 2:00 AM");
+  // Off-hours loop — 5:00 PM daily
+  cron.schedule("0 17 * * *", () => {
+    console.log("[Runway] Cron triggered — running off-hours Upwork loop (5:00 PM)");
+    runOffHoursLoop().catch((err) =>
+      console.error("[Runway] Off-hours loop error:", err)
+    );
+  });
+
+  console.log("[Runway] Scheduler registered — business loop at 9:00 AM, off-hours loop at 5:00 PM");
 }

@@ -7,6 +7,9 @@ const AGENT_IDS = [
   "devAgent",
   "inboxAgent",
   "grantArchitectAgent",
+  "upworkScoutAgent",
+  "jobExecutorAgent",
+  "hardwareFundAgent",
 ];
 
 export async function GET() {

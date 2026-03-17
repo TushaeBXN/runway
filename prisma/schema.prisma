@@ -117,3 +117,26 @@ model ChatMessage {
   content   String
   createdAt DateTime @default(now())
 }
+
+model UpworkJob {
+  id            String   @id @default(cuid())
+  title         String
+  budget        String
+  description   String
+  skills        String
+  score         Int
+  status        String   @default("pending")
+  earnings      Float    @default(0)
+  assignedAgent String?
+  upworkUrl     String?
+  deliverable   String?
+  createdAt     DateTime @default(now())
+}
+
+model HardwareFund {
+  id          String   @id @default(cuid())
+  totalEarned Float    @default(0)
+  currentTier String   @default("tier0")
+  notes       String?
+  updatedAt   DateTime @default(now())
+}
