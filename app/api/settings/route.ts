@@ -16,15 +16,15 @@ export async function GET() {
 
   if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-  // Mask API key — only return last 4 chars
-  const settings = user.settings
+  const s = user.settings;
+  const settings = s
     ? {
-        llmProvider: user.settings.llmProvider,
-        anthropicKeyLast4: user.settings.anthropicKey
-          ? user.settings.anthropicKey.slice(-4)
-          : null,
-        ollamaHost: user.settings.ollamaHost,
-        ollamaModel: user.settings.ollamaModel,
+        llmProvider: s.llmProvider,
+        anthropicKeyLast4: s.anthropicKey ? s.anthropicKey.slice(-4) : null,
+        openaiKeyLast4: s.openaiKey ? s.openaiKey.slice(-4) : null,
+        geminiKeyLast4: s.geminiKey ? s.geminiKey.slice(-4) : null,
+        ollamaHost: s.ollamaHost,
+        ollamaModel: s.ollamaModel,
       }
     : null;
 
@@ -41,23 +41,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const userId = (session.user as { id: string }).id;
-  const { llmProvider, anthropicKey, ollamaHost, ollamaModel } = await req.json();
+  const { llmProvider, anthropicKey, openaiKey, geminiKey, ollamaHost, ollamaModel } =
+    await req.json();
 
-  const data: {
-    llmProvider: string;
-    ollamaHost: string;
-    ollamaModel: string;
-    anthropicKey?: string;
-  } = {
-    llmProvider: llmProvider || "anthropic",
+  const data: Record<string, string> = {
+    llmProvider: llmProvider || "ollama",
     ollamaHost: ollamaHost || "http://localhost:11434",
-    ollamaModel: ollamaModel || "llama3.2",
+    ollamaModel: ollamaModel || "llama3.2:3b",
   };
 
-  // Only update anthropicKey if a new one was provided (non-empty)
-  if (anthropicKey && anthropicKey.trim() !== "") {
-    data.anthropicKey = anthropicKey.trim();
-  }
+  if (anthropicKey?.trim()) data.anthropicKey = anthropicKey.trim();
+  if (openaiKey?.trim()) data.openaiKey = openaiKey.trim();
+  if (geminiKey?.trim()) data.geminiKey = geminiKey.trim();
 
   await prisma.userSettings.upsert({
     where: { userId },

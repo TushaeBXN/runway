@@ -34,10 +34,12 @@ model OrgProfile {
 model UserSettings {
   id           String  @id @default(cuid())
   userId       String  @unique
-  llmProvider  String  @default("anthropic")
+  llmProvider  String  @default("ollama")
   anthropicKey String?
+  openaiKey    String?
+  geminiKey    String?
   ollamaHost   String  @default("http://localhost:11434")
-  ollamaModel  String  @default("llama3.2")
+  ollamaModel  String  @default("llama3.2:3b")
   user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
@@ -139,4 +141,29 @@ model HardwareFund {
   currentTier String   @default("tier0")
   notes       String?
   updatedAt   DateTime @default(now())
+}
+
+model PendingApproval {
+  id          String   @id @default(cuid())
+  agentId     String
+  agentName   String
+  actionType  String   // "email" | "social_post" | "job_deliverable" | "grant_strategy"
+  title       String
+  description String
+  payload     String   // JSON blob — the full draft content
+  status      String   @default("pending") // "pending" | "approved" | "rejected"
+  userNote    String?
+  createdAt   DateTime @default(now())
+  decidedAt   DateTime?
+}
+
+// Synced from Equilibrium-Claw OS via /api/session
+model AgentSession {
+  id        String   @id @default(cuid())
+  agentId   String   @unique
+  lastRun   DateTime?
+  runCount  Int      @default(0)
+  memory    String   @default("{}")
+  log       String   @default("[]")
+  updatedAt DateTime @updatedAt
 }

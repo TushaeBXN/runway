@@ -52,10 +52,24 @@ Draft professional email responses appropriate for a technology and education no
     },
   });
 
+  // Queue every email draft for approval — never auto-send
+  for (const email of output.emails) {
+    await prisma.pendingApproval.create({
+      data: {
+        agentId: "inboxAgent",
+        agentName: "Inbox Agent",
+        actionType: "email",
+        title: `Review email draft: "${email.subject}"`,
+        description: `To: ${email.to}`,
+        payload: JSON.stringify(email),
+      },
+    });
+  }
+
   await prisma.activityLog.create({
     data: {
       agentId: "inboxAgent",
-      label: `Inbox Agent drafted ${output.emails.length} emails, flagged ${output.flagged.length} items`,
+      label: `Inbox drafted ${output.emails.length} email(s) — waiting for your approval before sending`,
     },
   });
 

@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "bot": "tsx bot.ts",
-    "start:all": "concurrently -n \"web,bot\" -c \"cyan,green\" \"npm run dev\" \"npm run bot\""
+    "engram": "python engram_bridge.py",
+    "start:all": "concurrently -n \"web,bot,memory\" -c \"cyan,green,magenta\" \"npm run dev\" \"npm run bot\" \"npm run engram\""
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",

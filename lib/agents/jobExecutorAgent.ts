@@ -106,10 +106,24 @@ Produce the complete, client-ready deliverable now. Do not describe what you wil
       }
     }
 
+    // Queue completed deliverables for approval before submitting to client
+    if (jobStatus === "completed") {
+      await prisma.pendingApproval.create({
+        data: {
+          agentId: "jobExecutorAgent",
+          agentName: "Job Executor",
+          actionType: "job_deliverable",
+          title: `Review deliverable before submitting: "${job.title}"`,
+          description: `Budget: ${job.budget} · Skills: ${job.skills}`,
+          payload: JSON.stringify({ title: job.title, budget: job.budget, deliverable }),
+        },
+      });
+    }
+
     await prisma.activityLog.create({
       data: {
         agentId: "jobExecutorAgent",
-        label: `Job Executor: "${job.title}" — ${jobStatus} (+$${estimatedEarnings})`,
+        label: `Job Executor: "${job.title}" — ${jobStatus === "completed" ? "ready for your review" : "failed"}`,
       },
     });
 
@@ -135,8 +149,8 @@ Produce the complete, client-ready deliverable now. Do not describe what you wil
 }
 
 function getTier(totalEarned: number): string {
-  if (totalEarned >= 18000) return "tier3"; // NVIDIA Spark x2
-  if (totalEarned >= 7500) return "tier2";  // Mac Studio M4 Ultra
-  if (totalEarned >= 3500) return "tier1";  // MacBook Pro M4 Max
-  return "tier0";                           // Current hardware
+  if (totalEarned >= 7798) return "tier3"; // NVIDIA DGX Spark + ASUS GX10 combo
+  if (totalEarned >= 3099) return "tier2"; // ASUS Ascent GX10
+  if (totalEarned >= 1599) return "tier1"; // Mac Mini M4 Pro 64GB
+  return "tier0";
 }

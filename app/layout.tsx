@@ -1,9 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import ClientLayout from "@/components/ClientLayout";
-import { initSchedulerOnce } from "@/lib/schedulerInit";
-
-initSchedulerOnce();
 
 export const metadata: Metadata = {
   title: "Runway — AI Agent Platform",

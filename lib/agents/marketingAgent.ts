@@ -49,10 +49,22 @@ Create social media content that promotes our technology and education mission i
     },
   });
 
+  // Queue for approval — never auto-post
+  await prisma.pendingApproval.create({
+    data: {
+      agentId: "marketingAgent",
+      agentName: "Marketing Agent",
+      actionType: "social_post",
+      title: "Review social media content before posting",
+      description: `X post and LinkedIn content drafted for: ${delegatedTask}`,
+      payload: JSON.stringify(output),
+    },
+  });
+
   await prisma.activityLog.create({
     data: {
       agentId: "marketingAgent",
-      label: `Marketing drafted X post and LinkedIn content`,
+      label: `Marketing drafted content — waiting for your approval before posting`,
     },
   });
 

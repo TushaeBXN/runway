@@ -10,6 +10,14 @@ import { runHardwareFundAgent } from "@/lib/agents/hardwareFundAgent";
 import { prisma } from "@/lib/prisma";
 import { getResend } from "@/lib/resend";
 import { getProvider } from "@/lib/llm";
+import {
+  agentWakeUp,
+  agentRemember,
+  ensureOrgWing,
+  ensureAgentRoom,
+  orgSlug,
+  engramAvailable,
+} from "@/lib/engram";
 
 async function markAgentTasksCompleted(agentId: string, label: string) {
   try {
@@ -34,44 +42,89 @@ async function markAgentTasksCompleted(agentId: string, label: string) {
   }
 }
 
-export async function runNightlyLoop(): Promise<void> {
+export async function runNightlyLoop(orgName = "Runway Tech Education Nonprofit"): Promise<void> {
   const date = new Date().toLocaleDateString("en-US", {
     weekday: "long",
     year: "numeric",
     month: "long",
     day: "numeric",
   });
+  const wing = orgSlug(orgName);
 
-  console.log(`[Runway] Starting nightly agent loop — ${date}`);
+  console.log(`[Runway] Starting agent loop — ${date}`);
 
-  // Step 1: CEO Agent
+  // ── Engram: ensure org Wing + agent Rooms exist ──────────────────
+  const memoryOnline = await engramAvailable();
+  if (memoryOnline) {
+    console.log("[Runway] Engram memory online ✓");
+    await ensureOrgWing(orgName, "Nonprofit AI operations platform");
+    for (const [id, desc] of [
+      ["ceoAgent", "CEO priorities and delegations"],
+      ["marketingAgent", "Social media drafts and brand voice"],
+      ["devAgent", "Platform health and improvements"],
+      ["inboxAgent", "Email drafts and donor/partner communication"],
+      ["grantArchitectAgent", "Grant research and strategy memos"],
+      ["upworkScoutAgent", "Freelance job scouting"],
+      ["jobExecutorAgent", "Job execution and deliverables"],
+    ] as [string, string][]) {
+      await ensureAgentRoom(orgName, id, desc);
+    }
+  } else {
+    console.log("[Runway] Engram bridge not running — agents will work without memory");
+  }
+
+  // ── Step 1: CEO Agent with memory context ──────────────────────
   const recentActivity = await prisma.activityLog.findMany({
     take: 10,
     orderBy: { time: "desc" },
   });
   const priorActivity = recentActivity.map((a) => a.label).join("; ") || "No prior activity";
+  const ceoMemory = memoryOnline ? await agentWakeUp(wing, "ceoAgent") : "";
 
   const ceoOutput = await runCEOAgent({
     date,
-    orgName: "Runway Tech Education Nonprofit",
-    priorActivity,
+    orgName,
+    priorActivity: ceoMemory
+      ? `${priorActivity}\n\n[Memory] ${ceoMemory}`
+      : priorActivity,
   });
 
   console.log("[Runway] CEO Agent complete. Priorities:", ceoOutput.priorities);
 
-  // Step 2: Run secondary agents — parallel for Anthropic, sequential for Ollama
-  // (Ollama handles one inference at a time; concurrent requests cause fetch failures)
+  if (memoryOnline) {
+    await agentRemember({
+      wing,
+      room: "ceoAgent",
+      hall: "events",
+      content: `${date}: Priorities — ${ceoOutput.priorities.join("; ")}. ${ceoOutput.summary}`,
+    });
+  }
+
+  // ── Step 2: Secondary agents with memory — parallel for cloud, sequential for Ollama ──
   let marketingOutput, devOutput, inboxOutput;
+
   if (getProvider() === "ollama") {
     console.log("[Runway] Ollama mode — running agents sequentially");
-    marketingOutput = await runMarketingAgent(ceoOutput.delegations["marketingAgent"] || "Create weekly content");
+    const [mMem, iMem] = memoryOnline
+      ? await Promise.all([agentWakeUp(wing, "marketingAgent"), agentWakeUp(wing, "inboxAgent")])
+      : ["", ""];
+
+    marketingOutput = await runMarketingAgent(
+      `${ceoOutput.delegations["marketingAgent"] || "Create weekly content"}${mMem ? `\n\n[Memory] ${mMem}` : ""}`
+    );
     devOutput = await runDevAgent(ceoOutput.delegations["devAgent"] || "Review platform health");
-    inboxOutput = await runInboxAgent(ceoOutput.delegations["inboxAgent"] || "Draft pending replies");
+    inboxOutput = await runInboxAgent(
+      `${ceoOutput.delegations["inboxAgent"] || "Draft pending replies"}${iMem ? `\n\n[Memory] ${iMem}` : ""}`
+    );
   } else {
+    const [mMem, iMem] = memoryOnline
+      ? await Promise.all([agentWakeUp(wing, "marketingAgent"), agentWakeUp(wing, "inboxAgent")])
+      : ["", ""];
+
     [marketingOutput, devOutput, inboxOutput] = await Promise.all([
-      runMarketingAgent(ceoOutput.delegations["marketingAgent"] || "Create weekly content"),
+      runMarketingAgent(`${ceoOutput.delegations["marketingAgent"] || "Create weekly content"}${mMem ? `\n\n[Memory] ${mMem}` : ""}`),
       runDevAgent(ceoOutput.delegations["devAgent"] || "Review platform health"),
-      runInboxAgent(ceoOutput.delegations["inboxAgent"] || "Draft pending replies"),
+      runInboxAgent(`${ceoOutput.delegations["inboxAgent"] || "Draft pending replies"}${iMem ? `\n\n[Memory] ${iMem}` : ""}`),
     ]);
   }
 

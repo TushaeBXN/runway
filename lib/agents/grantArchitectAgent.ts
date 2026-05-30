@@ -163,10 +163,22 @@ Search the internet for real, currently open grant opportunities for our Winston
     },
   });
 
+  // Queue the strategy memo for review — don't submit anything without approval
+  await prisma.pendingApproval.create({
+    data: {
+      agentId: "grantArchitectAgent",
+      agentName: "Grant Architect",
+      actionType: "grant_strategy",
+      title: `Review grant strategy: "${output!.topPick}"`,
+      description: `${top.funder} · ${top.amount} · Mission score: ${top.missionScore}/10`,
+      payload: JSON.stringify(output),
+    },
+  });
+
   await prisma.activityLog.create({
     data: {
       agentId: "grantArchitectAgent",
-      label: `Grant Architect identified "${output!.topPick}" (score: ${top.missionScore}/10)`,
+      label: `Grant Architect identified "${output!.topPick}" — waiting for your review before proceeding`,
     },
   });
 
