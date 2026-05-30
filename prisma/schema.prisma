@@ -147,6 +147,43 @@ model HardwareFund {
   updatedAt   DateTime @default(now())
 }
 
+model AgentDefinition {
+  id             String    @id @default(cuid())
+  agentId        String    @unique
+  name           String
+  role           String
+  capabilities   String    // JSON array of strings
+  schedule       String    @default("business") // "business" | "off_hours" | "manual" | "custom"
+  cronExpr       String?
+  status         String    @default("active") // "active" | "probation" | "retired"
+  employmentType String    @default("permanent") // "permanent" | "temporary" | "part_time"
+  maxErrors      Int       @default(5)
+  isBuiltIn      Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  retiredAt      DateTime?
+  retiredReason  String?
+}
+
+model AgentPerformance {
+  id         String   @id @default(cuid())
+  agentId    String
+  ranAt      DateTime @default(now())
+  status     String
+  durationMs Int?
+  errorMsg   String?
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  agentId   String?
+  action    String
+  resource  String
+  detail    String?
+  ip        String?
+  createdAt DateTime @default(now())
+}
+
 model PendingApproval {
   id          String   @id @default(cuid())
   agentId     String

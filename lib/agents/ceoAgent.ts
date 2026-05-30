@@ -1,5 +1,6 @@
 import { callLLM, parseJSON } from "@/lib/llm";
 import { prisma } from "@/lib/prisma";
+import { getRolePrompt } from "@/lib/agentRoles";
 
 export interface CEOContext {
   date: string;
@@ -35,7 +36,7 @@ export async function runCEOAgent(context: CEOContext): Promise<CEOOutput> {
     }
   }
 
-  const systemPrompt = `You are the CEO of a small nonprofit organization in Winston-Salem, NC focused on Technology and Education. Every night you evaluate the current state of the organization, decide the top 3 priorities for the next 24 hours, and delegate tasks to other agents. Return your output as JSON with keys: priorities (array of 3 strings), delegations (object mapping agent names to tasks), summary (2-sentence overview).`;
+  const systemPrompt = getRolePrompt("ceoAgent") + `\n\nReturn your output as JSON with keys: priorities (array of 3 strings), delegations (object mapping agent names to tasks), summary (2-sentence overview).`;
 
   const userMessage = `Date: ${context.date}
 Organization: ${context.orgName}

@@ -1,6 +1,8 @@
 import { callLLM, parseJSON } from "@/lib/llm";
 import { prisma } from "@/lib/prisma";
 import { fetchUnreadEmails } from "@/lib/email";
+import { decrypt } from "@/lib/crypto";
+import { getRolePrompt } from "@/lib/agentRoles";
 
 export interface EmailDraft {
   to: string;
@@ -33,7 +35,7 @@ export async function runInboxAgent(
           host: acct.host,
           port: acct.port,
           username: acct.username,
-          appPassword: acct.appPassword,
+          appPassword: decrypt(acct.appPassword), // decrypt stored credential
         }, 5);
         if (messages.length > 0) {
           realEmailContext = `\n\nUnread emails in inbox:\n${messages.map((m, i) =>
@@ -52,9 +54,10 @@ export async function runInboxAgent(
 
   const hasRealEmails = realEmailContext.length > 0;
 
+  const baseRole = getRolePrompt("inboxAgent");
   const systemPrompt = hasRealEmails
-    ? `You are an executive assistant managing email for a nonprofit director. You have been given real unread emails from the inbox. Draft professional replies to each one. Return JSON with keys: emails (array of objects with to, subject, body, replyToSubject), flagged (array of topics needing human review before replying).`
-    : `You are an executive assistant managing email for a nonprofit director. Based on the delegated task context, draft 2 professional email replies (one to a partner organization, one to a donor). Return JSON with keys: emails (array of objects with to, subject, body), flagged (array of topics needing human review).`;
+    ? `${baseRole}\n\nYou have been given real unread emails from the inbox. Draft professional replies to each one. Return JSON with keys: emails (array of objects with to, subject, body, replyToSubject), flagged (array of topics needing human review before replying).`
+    : `${baseRole}\n\nBased on the delegated task context, draft 2 professional email replies (one to a partner organization, one to a donor). Return JSON with keys: emails (array of objects with to, subject, body), flagged (array of topics needing human review).`;
 
   const userMessage = hasRealEmails
     ? `Draft professional replies to these unread emails for a technology and education nonprofit in Winston-Salem, NC. Be warm, specific, and action-oriented.${realEmailContext}`
