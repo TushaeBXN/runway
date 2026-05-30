@@ -3,8 +3,8 @@
  * based on LLM_PROVIDER env var or per-user settings passed at call time.
  */
 
-import Anthropic from "@anthropic-ai/sdk";
 import { Ollama } from "ollama";
+type Anthropic = import("@anthropic-ai/sdk").default;
 
 export type LLMProvider = "anthropic" | "openai" | "gemini" | "ollama";
 
@@ -89,10 +89,11 @@ export async function callLLM(
 
 let _anthropic: Anthropic | null = null;
 
-function getAnthropicClient(apiKey?: string): Anthropic {
-  if (apiKey) return new Anthropic({ apiKey });
+async function getAnthropicClient(apiKey?: string): Promise<Anthropic> {
+  const { default: AnthropicSDK } = await import("@anthropic-ai/sdk");
+  if (apiKey) return new AnthropicSDK({ apiKey }) as unknown as Anthropic;
   if (!_anthropic) {
-    _anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    _anthropic = new AnthropicSDK({ apiKey: process.env.ANTHROPIC_API_KEY }) as unknown as Anthropic;
   }
   return _anthropic;
 }
@@ -104,7 +105,7 @@ async function callAnthropic(
   config?: LLMConfig,
   retries = 3
 ): Promise<string> {
-  const client = getAnthropicClient(config?.anthropicKey);
+  const client = await getAnthropicClient(config?.anthropicKey);
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const response = await client.messages.create({
@@ -273,7 +274,7 @@ async function _callAnthropicWithSearch(
   config?: LLMConfig,
   retries = 3
 ): Promise<string> {
-  const client = getAnthropicClient(config?.anthropicKey);
+  const client = await getAnthropicClient(config?.anthropicKey);
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const response = await client.messages.create({
@@ -357,7 +358,7 @@ export async function callLLMChat(
     return data.candidates[0].content.parts[0].text as string;
   }
 
-  const client = getAnthropicClient(config?.anthropicKey);
+  const client = await getAnthropicClient(config?.anthropicKey);
   const response = await client.messages.create({
     model: getAnthropicModel(),
     max_tokens: maxTokens,

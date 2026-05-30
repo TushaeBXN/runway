@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { callLLMChat } from "@/lib/llm";
 import { prisma } from "@/lib/prisma";

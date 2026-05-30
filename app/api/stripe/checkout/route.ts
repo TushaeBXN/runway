@@ -1,12 +1,15 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
-  apiVersion: "2025-01-27.acacia",
-});
+function getStripe() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY || "placeholder", {
+    apiVersion: "2026-02-25.clover",
+  });
+}
 
 export async function POST() {
   const session = await getServerSession(authOptions);
@@ -20,6 +23,7 @@ export async function POST() {
   });
   if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
+  const stripe = getStripe();
   let customerId = user.subscription?.stripeCustomerId;
   if (!customerId) {
     const customer = await stripe.customers.create({

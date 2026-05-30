@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { getProvider, getOllamaModel, getAnthropicModel } from "@/lib/llm";
 import { Ollama } from "ollama";

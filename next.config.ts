@@ -11,12 +11,14 @@ const nextConfig: NextConfig = {
   env: {
     DB_URL: `file:${path.resolve(process.cwd(), "runway.db")}`,
   },
-  // Prevent Turbopack from bundling native SQLite modules
   serverExternalPackages: [
     "better-sqlite3",
     "@libsql/client",
     "@prisma/adapter-libsql",
     "@prisma/adapter-better-sqlite3",
+    "@anthropic-ai/sdk",
+    "ollama",
+    "node-cron",
   ],
 };
 

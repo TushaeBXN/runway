@@ -48,7 +48,7 @@ Return your full output as a single JSON object with keys: opportunities (array 
 
 Search the internet for real, currently open grant opportunities for our Winston-Salem technology and education nonprofit, then execute the full R-A-W Protocol. Use your web search tool to find live grant listings — do not guess or use outdated information. Return valid JSON only.`;
 
-  let output: GrantArchitectOutput;
+  let output: GrantArchitectOutput | undefined;
   let rawText = "";
   let status = "success";
   let attempts = 0;

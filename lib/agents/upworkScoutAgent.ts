@@ -83,7 +83,7 @@ Return valid JSON only.`;
           skills: ["LinkedIn", "copywriting", "SaaS marketing"],
           score: 82,
           assignedAgent: "marketingAgent",
-          upworkUrl: null,
+          upworkUrl: undefined,
         },
         {
           title: "Research report: AI tools for small nonprofits",
@@ -92,7 +92,7 @@ Return valid JSON only.`;
           skills: ["research", "technical writing", "nonprofit"],
           score: 78,
           assignedAgent: "grantArchitectAgent",
-          upworkUrl: null,
+          upworkUrl: undefined,
         },
         {
           title: "Draft 3 professional email sequences for coaching business",
@@ -101,7 +101,7 @@ Return valid JSON only.`;
           skills: ["email copywriting", "coaching", "sequences"],
           score: 75,
           assignedAgent: "inboxAgent",
-          upworkUrl: null,
+          upworkUrl: undefined,
         },
       ],
       summary: "3 strong off-hours opportunities found — content and email work best matched to current capabilities.",

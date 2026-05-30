@@ -1,7 +1,5 @@
 import path from "path";
 import { defineConfig } from "prisma/config";
-import { createClient } from "@libsql/client/node";
-import { PrismaLibSql } from "@prisma/adapter-libsql";
 
 const dbPath = path.resolve(process.cwd(), "runway.db");
 
@@ -12,9 +10,5 @@ export default defineConfig({
   },
   datasource: {
     url: `file:${dbPath}`,
-    adapter: () => {
-      const libsql = createClient({ url: `file:${dbPath}` });
-      return new PrismaLibSql(libsql);
-    },
   },
 });
