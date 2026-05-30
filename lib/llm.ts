@@ -39,6 +39,7 @@ export interface LLMConfig {
   geminiKey?: string;
   ollamaHost?: string;
   ollamaModel?: string;
+  modelOverride?: string; // explicit model name — overrides tier defaults
 }
 
 /**
@@ -109,7 +110,7 @@ async function callAnthropic(
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const response = await client.messages.create({
-        model: getAnthropicModel(),
+        model: config?.modelOverride ?? getAnthropicModel(),
         max_tokens: maxTokens,
         system: systemPrompt,
         messages: [{ role: "user", content: userMessage }],
@@ -152,7 +153,7 @@ async function callOpenAI(
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: getOpenAIModel(),
+          model: config?.modelOverride ?? getOpenAIModel(),
           max_tokens: maxTokens,
           messages: [
             { role: "system", content: systemPrompt },
@@ -189,7 +190,7 @@ async function callGemini(
   const apiKey = config?.geminiKey ?? process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("Gemini API key not configured");
 
-  const model = getGeminiModel();
+  const model = config?.modelOverride ?? getGeminiModel();
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
   for (let attempt = 0; attempt <= retries; attempt++) {

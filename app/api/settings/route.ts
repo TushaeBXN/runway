@@ -19,7 +19,6 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
   const s = user.settings;
-  // Decrypt keys only to get the last 4 chars for display — never return full keys
   const settings = s ? {
     llmProvider: s.llmProvider,
     anthropicKeyLast4: s.anthropicKey ? mask(decrypt(s.anthropicKey), 4).slice(-4) : null,
@@ -27,6 +26,9 @@ export async function GET() {
     geminiKeyLast4: s.geminiKey ? mask(decrypt(s.geminiKey), 4).slice(-4) : null,
     ollamaHost: s.ollamaHost,
     ollamaModel: s.ollamaModel,
+    scheduleConfig: s.scheduleConfig ? JSON.parse(s.scheduleConfig) : null,
+    useLocalForSimple: s.useLocalForSimple,
+    useCloudForComplex: s.useCloudForComplex,
   } : null;
 
   return NextResponse.json({ orgProfile: user.orgProfile, subscription: user.subscription, aiSettings: settings });
@@ -38,7 +40,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const userId = (session.user as { id: string }).id;
-  const { llmProvider, anthropicKey, openaiKey, geminiKey, ollamaHost, ollamaModel } = await req.json();
+  const { llmProvider, anthropicKey, openaiKey, geminiKey, ollamaHost, ollamaModel, scheduleConfig, useLocalForSimple, useCloudForComplex } = await req.json();
 
   const data: Record<string, string> = {
     llmProvider: llmProvider || "ollama",
@@ -50,6 +52,9 @@ export async function POST(req: Request) {
   if (anthropicKey?.trim()) data.anthropicKey = encrypt(anthropicKey.trim());
   if (openaiKey?.trim()) data.openaiKey = encrypt(openaiKey.trim());
   if (geminiKey?.trim()) data.geminiKey = encrypt(geminiKey.trim());
+  if (scheduleConfig) data.scheduleConfig = JSON.stringify(scheduleConfig);
+  if (typeof useLocalForSimple === "boolean") (data as Record<string, unknown>).useLocalForSimple = useLocalForSimple;
+  if (typeof useCloudForComplex === "boolean") (data as Record<string, unknown>).useCloudForComplex = useCloudForComplex;
 
   await prisma.userSettings.upsert({
     where: { userId },

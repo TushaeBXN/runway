@@ -44,6 +44,14 @@ model UserSettings {
   geminiKey    String?
   ollamaHost   String  @default("http://localhost:11434")
   ollamaModel  String  @default("llama3.2:3b")
+
+  // Schedule config (JSON — parsed against ScheduleConfig interface)
+  scheduleConfig String?
+
+  // Model routing preferences
+  useLocalForSimple  Boolean @default(true)
+  useCloudForComplex Boolean @default(true)
+
   user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 

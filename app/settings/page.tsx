@@ -27,6 +27,16 @@ interface AISettings {
   geminiKeyLast4: string | null;
   ollamaHost: string;
   ollamaModel: string;
+  useLocalForSimple?: boolean;
+  useCloudForComplex?: boolean;
+  scheduleConfig?: {
+    businessStartHour: number; businessStartMin: number;
+    businessEndHour: number; businessEndMin: number;
+    businessDays: number[];
+    offHoursStartHour: number; offHoursStartMin: number;
+    offHoursRunWeekends: boolean;
+    coolDownMinutes: number;
+  } | null;
 }
 
 interface SettingsData {
@@ -223,6 +233,20 @@ function SettingsContent() {
   const [aiSaved, setAiSaved] = useState(false);
   const [showKey, setShowKey] = useState(false);
 
+  // Schedule state
+  const [schedule, setSchedule] = useState({
+    businessStartHour: 4, businessStartMin: 30,
+    businessEndHour: 17, businessEndMin: 30,
+    businessDays: [1, 2, 3, 4, 5],
+    offHoursStartHour: 18, offHoursStartMin: 0,
+    offHoursRunWeekends: true,
+    coolDownMinutes: 30,
+  });
+  const [useLocalForSimple, setUseLocalForSimple] = useState(true);
+  const [useCloudForComplex, setUseCloudForComplex] = useState(true);
+  const [scheduleSaving, setScheduleSaving] = useState(false);
+  const [scheduleSaved, setScheduleSaved] = useState(false);
+
   useEffect(() => {
     if (status === "unauthenticated") { router.push("/login"); return; }
     if (status === "authenticated") {
@@ -231,6 +255,9 @@ function SettingsContent() {
         if (d.aiSettings) {
           setProvider((d.aiSettings.llmProvider as Provider) || "ollama");
           setOllamaModel(d.aiSettings.ollamaModel || "llama3.2:3b");
+          if (d.aiSettings.scheduleConfig) setSchedule(s => ({ ...s, ...d.aiSettings!.scheduleConfig }));
+          if (typeof d.aiSettings.useLocalForSimple === "boolean") setUseLocalForSimple(d.aiSettings.useLocalForSimple);
+          if (typeof d.aiSettings.useCloudForComplex === "boolean") setUseCloudForComplex(d.aiSettings.useCloudForComplex);
         }
       }).catch(() => null);
     }
@@ -261,6 +288,18 @@ function SettingsContent() {
       setData(updated);
       setTimeout(() => setAiSaved(false), 3000);
     } finally { setAiSaving(false); }
+  }
+
+  async function saveSchedule() {
+    setScheduleSaving(true);
+    await fetch("/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ llmProvider: provider, scheduleConfig: schedule, useLocalForSimple, useCloudForComplex }),
+    });
+    setScheduleSaved(true);
+    setTimeout(() => setScheduleSaved(false), 3000);
+    setScheduleSaving(false);
   }
 
   if (status === "loading" || !data) {
@@ -447,6 +486,114 @@ function SettingsContent() {
               )}
             </div>
           </form>
+        </Card>
+
+        {/* ── Schedule & Model Routing ── */}
+        <Card>
+          <SectionLabel>Agent Schedule & Cost Control</SectionLabel>
+          <p style={{ fontSize: 13, color: "#6E6E73", marginBottom: 20, lineHeight: 1.6 }}>
+            Set when your agents work. Default: <strong>4:30 AM – 5:30 PM ET</strong> for business tasks, <strong>6:00 PM onwards</strong> for off-hours Upwork work. Adjust to save on API costs.
+          </p>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+            {/* Business hours */}
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 700, color: "#1D1D1F", margin: "0 0 12px" }}>Business Hours (CEO, grants, email, marketing)</p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                <div>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "#8E8E93", textTransform: "uppercase", letterSpacing: 0.8, margin: "0 0 6px" }}>Start Time (ET)</p>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <input type="number" min={0} max={23} value={schedule.businessStartHour} onChange={e => setSchedule(s => ({ ...s, businessStartHour: +e.target.value }))}
+                      style={{ width: 64, border: "1.5px solid #E5E5EA", borderRadius: 8, padding: "8px 10px", fontSize: 14, outline: "none", textAlign: "center" }} />
+                    <span style={{ fontSize: 18, color: "#8E8E93", alignSelf: "center" }}>:</span>
+                    <input type="number" min={0} max={59} step={15} value={schedule.businessStartMin} onChange={e => setSchedule(s => ({ ...s, businessStartMin: +e.target.value }))}
+                      style={{ width: 64, border: "1.5px solid #E5E5EA", borderRadius: 8, padding: "8px 10px", fontSize: 14, outline: "none", textAlign: "center" }} />
+                  </div>
+                </div>
+                <div>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "#8E8E93", textTransform: "uppercase", letterSpacing: 0.8, margin: "0 0 6px" }}>End / Cool-down (ET)</p>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <input type="number" min={0} max={23} value={schedule.businessEndHour} onChange={e => setSchedule(s => ({ ...s, businessEndHour: +e.target.value }))}
+                      style={{ width: 64, border: "1.5px solid #E5E5EA", borderRadius: 8, padding: "8px 10px", fontSize: 14, outline: "none", textAlign: "center" }} />
+                    <span style={{ fontSize: 18, color: "#8E8E93", alignSelf: "center" }}>:</span>
+                    <input type="number" min={0} max={59} step={15} value={schedule.businessEndMin} onChange={e => setSchedule(s => ({ ...s, businessEndMin: +e.target.value }))}
+                      style={{ width: 64, border: "1.5px solid #E5E5EA", borderRadius: 8, padding: "8px 10px", fontSize: 14, outline: "none", textAlign: "center" }} />
+                  </div>
+                </div>
+                <div>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "#8E8E93", textTransform: "uppercase", letterSpacing: 0.8, margin: "0 0 6px" }}>Cool-down (min)</p>
+                  <input type="number" min={0} max={120} step={15} value={schedule.coolDownMinutes} onChange={e => setSchedule(s => ({ ...s, coolDownMinutes: +e.target.value }))}
+                    style={{ width: "100%", border: "1.5px solid #E5E5EA", borderRadius: 8, padding: "8px 10px", fontSize: 14, outline: "none", boxSizing: "border-box", textAlign: "center" }} />
+                </div>
+              </div>
+              {/* Day selector */}
+              <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
+                {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((d, i) => (
+                  <button key={d} onClick={() => setSchedule(s => ({ ...s, businessDays: s.businessDays.includes(i) ? s.businessDays.filter(x => x !== i) : [...s.businessDays, i].sort() }))}
+                    style={{ flex: 1, padding: "6px 0", border: "1.5px solid #E5E5EA", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", background: schedule.businessDays.includes(i) ? "#1D1D1F" : "#fff", color: schedule.businessDays.includes(i) ? "#fff" : "#8E8E93", transition: "all 0.15s" }}>
+                    {d}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Off-hours */}
+            <div style={{ borderTop: "1px solid #F0F0F0", paddingTop: 16 }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: "#1D1D1F", margin: "0 0 12px" }}>Off-Hours (Upwork jobs, background tasks)</p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "#8E8E93", textTransform: "uppercase", letterSpacing: 0.8, margin: "0 0 6px" }}>Start Time (ET)</p>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <input type="number" min={0} max={23} value={schedule.offHoursStartHour} onChange={e => setSchedule(s => ({ ...s, offHoursStartHour: +e.target.value }))}
+                      style={{ width: 64, border: "1.5px solid #E5E5EA", borderRadius: 8, padding: "8px 10px", fontSize: 14, outline: "none", textAlign: "center" }} />
+                    <span style={{ fontSize: 18, color: "#8E8E93", alignSelf: "center" }}>:</span>
+                    <input type="number" min={0} max={59} step={15} value={schedule.offHoursStartMin} onChange={e => setSchedule(s => ({ ...s, offHoursStartMin: +e.target.value }))}
+                      style={{ width: 64, border: "1.5px solid #E5E5EA", borderRadius: 8, padding: "8px 10px", fontSize: 14, outline: "none", textAlign: "center" }} />
+                  </div>
+                </div>
+                <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", paddingTop: 24 }}>
+                  <input type="checkbox" checked={schedule.offHoursRunWeekends} onChange={e => setSchedule(s => ({ ...s, offHoursRunWeekends: e.target.checked }))} style={{ width: 18, height: 18, accentColor: "#1D1D1F" }} />
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "#1D1D1F" }}>Run off-hours on weekends too</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Model routing */}
+            <div style={{ borderTop: "1px solid #F0F0F0", paddingTop: 16 }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: "#1D1D1F", margin: "0 0 6px" }}>Smart Model Routing — save tokens automatically</p>
+              <p style={{ fontSize: 12, color: "#6E6E73", marginBottom: 14 }}>Route simple tasks to cheap/local models and complex tasks to powerful ones. Reduces token usage by up to 85%.</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <label style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "12px 14px", border: "1.5px solid #E5E5EA", borderRadius: 12, cursor: "pointer" }}>
+                  <input type="checkbox" checked={useLocalForSimple} onChange={e => setUseLocalForSimple(e.target.checked)} style={{ width: 18, height: 18, marginTop: 2, accentColor: "#34C759", flexShrink: 0 }} />
+                  <div>
+                    <p style={{ fontSize: 14, fontWeight: 600, color: "#1D1D1F", margin: 0 }}>⬡ Local model for simple tasks</p>
+                    <p style={{ fontSize: 12, color: "#8E8E93", margin: "3px 0 0" }}>CEO summaries, status reports, short email drafts → Ollama (free). Saves cloud tokens for what matters.</p>
+                  </div>
+                </label>
+                <label style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "12px 14px", border: "1.5px solid #E5E5EA", borderRadius: 12, cursor: "pointer" }}>
+                  <input type="checkbox" checked={useCloudForComplex} onChange={e => setUseCloudForComplex(e.target.checked)} style={{ width: 18, height: 18, marginTop: 2, accentColor: "#34C759", flexShrink: 0 }} />
+                  <div>
+                    <p style={{ fontSize: 14, fontWeight: 600, color: "#1D1D1F", margin: 0 }}>◆ Cloud model for complex tasks</p>
+                    <p style={{ fontSize: 12, color: "#8E8E93", margin: "3px 0 0" }}>Grant strategies, donor emails, job deliverables → Claude Sonnet / GPT-4o. Best quality where it counts.</p>
+                  </div>
+                </label>
+              </div>
+              <div style={{ marginTop: 12, padding: "10px 14px", background: "#F5F5F7", borderRadius: 10 }}>
+                <p style={{ fontSize: 12, color: "#6E6E73", margin: 0 }}>
+                  Current routing: <strong>Status reports, summaries</strong> → {useLocalForSimple ? "local (free)" : "cloud"} · <strong>Grant strategies, deliverables</strong> → {useCloudForComplex ? "cloud (powerful)" : "local"}
+                </p>
+              </div>
+            </div>
+
+            <div style={{ borderTop: "1px solid #F0F0F0", paddingTop: 16, display: "flex", alignItems: "center", gap: 12 }}>
+              <button onClick={saveSchedule} disabled={scheduleSaving}
+                style={{ background: scheduleSaving ? "#E5E5EA" : "#1D1D1F", color: scheduleSaving ? "#8E8E93" : "#fff", border: "none", borderRadius: 12, padding: "12px 28px", fontSize: 15, fontWeight: 700, cursor: scheduleSaving ? "not-allowed" : "pointer" }}>
+                {scheduleSaving ? "Saving…" : "Save Schedule"}
+              </button>
+              {scheduleSaved && <span style={{ fontSize: 14, color: "#34C759", fontWeight: 600 }}>✅ Schedule saved — agents will follow this from now on.</span>}
+            </div>
+          </div>
         </Card>
 
         {/* ── Account ── */}

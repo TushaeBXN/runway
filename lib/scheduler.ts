@@ -10,6 +10,8 @@ import { runHardwareFundAgent } from "@/lib/agents/hardwareFundAgent";
 import { prisma } from "@/lib/prisma";
 import { getResend } from "@/lib/resend";
 import { getProvider } from "@/lib/llm";
+import { DEFAULT_SCHEDULE, toCronExpressions, type ScheduleConfig } from "@/lib/agentSchedule";
+import { routeModel, buildAgentContext, AGENT_COMPLEXITY } from "@/lib/modelRouter";
 import {
   agentWakeUp,
   agentRemember,
@@ -268,27 +270,87 @@ export async function runOffHoursLoop(): Promise<void> {
   console.log("[Runway] Off-hours loop complete.");
 }
 
-let scheduled = false;
+// ── Cool-down / Debrief ──────────────────────────────────────────
+// Runs at end of business day — summarizes the day and logs a debrief.
+export async function runCoolDown(): Promise<void> {
+  const date = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+  console.log(`[Runway] Cool-down started — ${date}`);
 
-export function initScheduler(): void {
+  const todayActivity = await prisma.activityLog.findMany({
+    where: { time: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } },
+    orderBy: { time: "desc" },
+    take: 20,
+  });
+
+  const summary = todayActivity.map(a => a.label).join("; ") || "Quiet day — no activity logged.";
+
+  await prisma.activityLog.create({
+    data: {
+      agentId: "system",
+      label: `📋 End-of-day debrief (${date}): ${summary.slice(0, 200)}`,
+    },
+  });
+
+  console.log("[Runway] Cool-down complete. Agents standing by for off-hours.");
+}
+
+// ── Schedule loader ──────────────────────────────────────────────
+async function loadSchedule(): Promise<ScheduleConfig> {
+  try {
+    // Use the first user's schedule config (single-tenant for now)
+    const settings = await prisma.userSettings.findFirst({
+      where: { scheduleConfig: { not: null } },
+    });
+    if (settings?.scheduleConfig) {
+      return { ...DEFAULT_SCHEDULE, ...JSON.parse(settings.scheduleConfig) };
+    }
+  } catch { /* fall through */ }
+  return DEFAULT_SCHEDULE;
+}
+
+let scheduled = false;
+let activeCrons: ReturnType<typeof cron.schedule>[] = [];
+
+export async function initScheduler(): Promise<void> {
   if (scheduled) return;
   scheduled = true;
 
-  // Business hours loop — 9:00 AM daily
-  cron.schedule("0 9 * * *", () => {
-    console.log("[Runway] Cron triggered — running morning business loop (9:00 AM)");
-    runNightlyLoop().catch((err) =>
-      console.error("[Runway] Morning loop error:", err)
-    );
-  });
+  // Load schedule config (or use defaults)
+  const cfg = await loadSchedule();
+  const crons = toCronExpressions(cfg);
 
-  // Off-hours loop — 5:00 PM daily
-  cron.schedule("0 17 * * *", () => {
-    console.log("[Runway] Cron triggered — running off-hours Upwork loop (5:00 PM)");
-    runOffHoursLoop().catch((err) =>
-      console.error("[Runway] Off-hours loop error:", err)
-    );
-  });
+  console.log(`[Runway] Schedule loaded:`);
+  console.log(`  Business loop: ${crons.business}`);
+  console.log(`  Cool-down:     ${crons.coolDown}`);
+  console.log(`  Off-hours:     ${crons.offHours}`);
 
-  console.log("[Runway] Scheduler registered — business loop at 9:00 AM, off-hours loop at 5:00 PM");
+  // Business hours loop — default 4:30 AM Mon–Fri
+  activeCrons.push(cron.schedule(crons.business, () => {
+    const label = `${cfg.businessStartHour}:${String(cfg.businessStartMin).padStart(2,"0")} AM`;
+    console.log(`[Runway] Business loop triggered (${label})`);
+    runNightlyLoop().catch(err => console.error("[Runway] Business loop error:", err));
+  }));
+
+  // Cool-down — default 5:30 PM Mon–Fri
+  activeCrons.push(cron.schedule(crons.coolDown, () => {
+    console.log("[Runway] Cool-down triggered");
+    runCoolDown().catch(err => console.error("[Runway] Cool-down error:", err));
+  }));
+
+  // Off-hours loop — default 6:00 PM daily (incl. weekends if configured)
+  activeCrons.push(cron.schedule(crons.offHours, () => {
+    console.log("[Runway] Off-hours loop triggered");
+    runOffHoursLoop().catch(err => console.error("[Runway] Off-hours loop error:", err));
+  }));
+
+  console.log("[Runway] Scheduler registered — use Settings → Schedule to customize.");
+}
+
+/** Reload schedule from DB and restart crons (called when user saves schedule settings) */
+export async function reloadScheduler(): Promise<void> {
+  activeCrons.forEach(c => c.stop());
+  activeCrons = [];
+  scheduled = false;
+  await initScheduler();
+  console.log("[Runway] Scheduler reloaded with new config.");
 }
