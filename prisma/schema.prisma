@@ -15,8 +15,12 @@ model User {
   orgProfile   OrgProfile?
   subscription Subscription?
   settings     UserSettings?
-  tasks        Task[]
-  documents    Document[]
+  tasks              Task[]
+  documents          Document[]
+  businessInfo       BusinessInfo?
+  businessReminders  BusinessReminder[]
+  emailAccounts      EmailAccount[]
+  connectedServices  ConnectedService[]
 }
 
 model OrgProfile {
@@ -155,6 +159,71 @@ model PendingApproval {
   userNote    String?
   createdAt   DateTime @default(now())
   decidedAt   DateTime?
+}
+
+model BusinessInfo {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  businessName    String?
+  ein             String?
+  dunsNumber      String?
+  formationDate   String?
+  businessAddress String?
+  poBox           String?
+  poBoxProvider   String?
+  domainName      String?
+  domainRegistrar String?
+  phoneNumber     String?
+  phoneService    String?  // "ringcentral" | "vonage" | "zoom" | "other"
+  website         String?
+  taxEntityType   String?  // "nonprofit_501c3" | "llc" | "sole_prop" | etc.
+  stateFiled      String?
+  creditScore     String?
+  tradeLineCount  Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model BusinessReminder {
+  id           String    @id @default(cuid())
+  userId       String
+  type         String    // "tax" | "pobox" | "domain" | "phone" | "hosting" | "duns" | "credit" | "custom"
+  label        String
+  dueDate      String    // "MM-DD" for annual, "DD" for monthly, or full date for one-time
+  recurrence   String    @default("annual") // "annual" | "monthly" | "quarterly" | "once"
+  amount       Float?
+  notes        String?
+  lastPaidDate DateTime?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model EmailAccount {
+  id          String   @id @default(cuid())
+  userId      String
+  label       String
+  provider    String   // "gmail" | "outlook" | "yahoo" | "imap"
+  host        String
+  port        Int      @default(993)
+  username    String
+  appPassword String
+  isActive    Boolean  @default(true)
+  lastSynced  DateTime?
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ConnectedService {
+  id          String   @id @default(cuid())
+  userId      String
+  service     String   // "upwork" | "quickbooks" | "mailchimp"
+  label       String
+  credentials String   // JSON — api keys, tokens
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 // Synced from Equilibrium-Claw OS via /api/session

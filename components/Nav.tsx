@@ -12,6 +12,7 @@ const links = [
   { href: "/agents", label: "Agents" },
   { href: "/grants", label: "Grants" },
   { href: "/upwork", label: "Upwork" },
+  { href: "/compliance", label: "Compliance" },
   { href: "/hardware-fund", label: "Hardware Fund" },
   { href: "/chat", label: "Chat" },
 ];

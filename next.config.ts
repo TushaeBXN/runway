@@ -19,6 +19,7 @@ const nextConfig: NextConfig = {
     "@anthropic-ai/sdk",
     "ollama",
     "node-cron",
+    "imapflow",
   ],
 };
 
