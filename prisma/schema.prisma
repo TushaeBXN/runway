@@ -52,6 +52,10 @@ model UserSettings {
   useLocalForSimple  Boolean @default(true)
   useCloudForComplex Boolean @default(true)
 
+  // Abacus.ai ChatLLM
+  abacusApiKey   String?
+  abacusEndpoint String?
+
   user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
@@ -280,4 +284,30 @@ model AgentSession {
   memory    String   @default("{}")
   log       String   @default("[]")
   updatedAt DateTime @updatedAt
+}
+
+// GenTeam workspace
+model Channel {
+  id          String           @id @default(cuid())
+  name        String
+  description String?
+  type        String           @default("channel") // "channel" | "dm"
+  agentId     String?          // for DM channels: the agent's id
+  createdAt   DateTime         @default(now())
+  messages    ChannelMessage[]
+}
+
+model ChannelMessage {
+  id             String   @id @default(cuid())
+  channelId      String
+  senderId       String
+  senderType     String   // "user" | "agent"
+  senderName     String
+  content        String
+  msgType        String   @default("text") // "text" | "approval_card" | "thinking"
+  approvalStatus String?  // null | "pending" | "approved" | "rejected"
+  payload        String?  // JSON — full draft for approval cards
+  actionType     String?  // "email" | "social_post" | "job_deliverable" | "grant_strategy"
+  createdAt      DateTime @default(now())
+  channel        Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
 }

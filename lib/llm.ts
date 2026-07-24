@@ -6,7 +6,8 @@
 import { Ollama } from "ollama";
 type Anthropic = import("@anthropic-ai/sdk").default;
 
-export type LLMProvider = "anthropic" | "openai" | "gemini" | "ollama";
+export type LLMProvider = "anthropic" | "openai" | "gemini" | "ollama" | "abacus";
+export type TaskComplexity = "simple" | "medium" | "complex" | "research";
 
 export function getProvider(): LLMProvider {
   const p = process.env.LLM_PROVIDER?.toLowerCase();
@@ -40,7 +41,20 @@ export interface LLMConfig {
   ollamaHost?: string;
   ollamaModel?: string;
   modelOverride?: string; // explicit model name — overrides tier defaults
+  json?: boolean; // false = plain text (Ollama won't force JSON format)
+  // Abacus.ai
+  abacusApiKey?: string;
+  abacusEndpoint?: string;
+  taskComplexity?: TaskComplexity; // hint for Abacus smart routing
 }
+
+// Abacus smart model routing — maps task complexity to the right model
+const ABACUS_MODEL_MAP: Record<TaskComplexity, string> = {
+  simple:   "llama-3.3-70b",       // fast, great for routing / status / casual
+  medium:   "claude-3-5-haiku",    // balanced for drafts, emails, support
+  complex:  "claude-3-5-sonnet",   // best for grants, financial analysis
+  research: "claude-3-5-sonnet",   // research needs frontier reasoning
+};
 
 /**
  * Robustly extract JSON from a string that may contain prose, code fences,
@@ -83,6 +97,7 @@ export async function callLLM(
   if (provider === "ollama") return callOllama(systemPrompt, userMessage, config);
   if (provider === "openai") return callOpenAI(systemPrompt, userMessage, maxTokens, config);
   if (provider === "gemini") return callGemini(systemPrompt, userMessage, maxTokens, config);
+  if (provider === "abacus") return callAbacus(systemPrompt, userMessage, maxTokens, config);
   return callAnthropic(systemPrompt, userMessage, maxTokens, config);
 }
 
@@ -221,6 +236,56 @@ async function callGemini(
   throw new Error("Max retries exceeded");
 }
 
+// --- Abacus.ai ChatLLM ---
+
+async function callAbacus(
+  systemPrompt: string,
+  userMessage: string,
+  maxTokens: number,
+  config?: LLMConfig,
+  retries = 3
+): Promise<string> {
+  const apiKey = config?.abacusApiKey ?? process.env.ABACUS_API_KEY;
+  if (!apiKey) throw new Error("Abacus.ai API key not configured");
+
+  const baseUrl = (config?.abacusEndpoint ?? process.env.ABACUS_ENDPOINT ?? "https://apps.abacus.ai/api/v0").replace(/\/$/, "");
+  const complexity = config?.taskComplexity ?? "medium";
+  const model = config?.modelOverride ?? ABACUS_MODEL_MAP[complexity];
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(`${baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: maxTokens,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userMessage },
+          ],
+        }),
+      });
+      if (!res.ok) {
+        if (res.status === 429 && attempt < retries) {
+          const wait = Math.pow(2, attempt + 1) * 5000;
+          await new Promise((r) => setTimeout(r, wait));
+          continue;
+        }
+        throw new Error(`Abacus error ${res.status}: ${await res.text()}`);
+      }
+      const data = await res.json();
+      return data.choices[0].message.content as string;
+    } catch (err) {
+      if (attempt >= retries) throw err;
+    }
+  }
+  throw new Error("Max retries exceeded");
+}
+
 // --- Ollama ---
 
 let _ollama: Ollama | null = null;
@@ -242,7 +307,7 @@ async function callOllama(
   const model = config?.ollamaModel ?? getOllamaModel();
   const response = await client.chat({
     model,
-    format: "json",
+    ...(config?.json !== false ? { format: "json" } : {}),
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userMessage },

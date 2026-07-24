@@ -51,6 +51,12 @@ const MODEL_TIERS: Record<LLMProvider, Record<TaskComplexity, string>> = {
     complex:  process.env.OLLAMA_MODEL || "llama3.2:3b",
     research: process.env.OLLAMA_MODEL || "llama3.2:3b",
   },
+  abacus: {
+    simple:   "llama-3.3-70b",       // fast, free-tier capable
+    medium:   "claude-3-5-haiku",    // balanced for drafts / support
+    complex:  "claude-3-5-sonnet",   // best for grants / finance / research
+    research: "claude-3-5-sonnet",   // research needs frontier reasoning
+  },
 };
 
 // Max tokens per complexity (don't waste context on simple tasks)
@@ -74,6 +80,8 @@ export async function routeModel(
     geminiKey?: string;
     ollamaModel?: string;
     ollamaHost?: string;
+    abacusApiKey?: string;
+    abacusEndpoint?: string;
   } | null
 ): Promise<RoutedConfig> {
   const { getProvider } = await import("./llm");
@@ -94,6 +102,8 @@ export async function routeModel(
     geminiKey: userSettings?.geminiKey,
     ollamaHost: userSettings?.ollamaHost,
     ollamaModel: userSettings?.ollamaModel,
+    abacusApiKey: userSettings?.abacusApiKey,
+    abacusEndpoint: userSettings?.abacusEndpoint,
   };
 }
 

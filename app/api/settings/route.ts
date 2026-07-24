@@ -24,8 +24,10 @@ export async function GET() {
     anthropicKeyLast4: s.anthropicKey ? mask(decrypt(s.anthropicKey), 4).slice(-4) : null,
     openaiKeyLast4: s.openaiKey ? mask(decrypt(s.openaiKey), 4).slice(-4) : null,
     geminiKeyLast4: s.geminiKey ? mask(decrypt(s.geminiKey), 4).slice(-4) : null,
+    abacusKeyLast4: s.abacusApiKey ? mask(decrypt(s.abacusApiKey), 4).slice(-4) : null,
     ollamaHost: s.ollamaHost,
     ollamaModel: s.ollamaModel,
+    abacusEndpoint: s.abacusEndpoint,
     scheduleConfig: s.scheduleConfig ? JSON.parse(s.scheduleConfig) : null,
     useLocalForSimple: s.useLocalForSimple,
     useCloudForComplex: s.useCloudForComplex,
@@ -40,7 +42,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const userId = (session.user as { id: string }).id;
-  const { llmProvider, anthropicKey, openaiKey, geminiKey, ollamaHost, ollamaModel, scheduleConfig, useLocalForSimple, useCloudForComplex } = await req.json();
+  const { llmProvider, anthropicKey, openaiKey, geminiKey, abacusApiKey, abacusEndpoint, ollamaHost, ollamaModel, scheduleConfig, useLocalForSimple, useCloudForComplex } = await req.json();
 
   const data: Record<string, string> = {
     llmProvider: llmProvider || "ollama",
@@ -52,6 +54,8 @@ export async function POST(req: Request) {
   if (anthropicKey?.trim()) data.anthropicKey = encrypt(anthropicKey.trim());
   if (openaiKey?.trim()) data.openaiKey = encrypt(openaiKey.trim());
   if (geminiKey?.trim()) data.geminiKey = encrypt(geminiKey.trim());
+  if (abacusApiKey?.trim()) data.abacusApiKey = encrypt(abacusApiKey.trim());
+  if (abacusEndpoint?.trim()) data.abacusEndpoint = abacusEndpoint.trim();
   if (scheduleConfig) data.scheduleConfig = JSON.stringify(scheduleConfig);
   if (typeof useLocalForSimple === "boolean") (data as Record<string, unknown>).useLocalForSimple = useLocalForSimple;
   if (typeof useCloudForComplex === "boolean") (data as Record<string, unknown>).useCloudForComplex = useCloudForComplex;

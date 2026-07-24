@@ -25,8 +25,10 @@ interface AISettings {
   anthropicKeyLast4: string | null;
   openaiKeyLast4: string | null;
   geminiKeyLast4: string | null;
+  abacusKeyLast4: string | null;
   ollamaHost: string;
   ollamaModel: string;
+  abacusEndpoint: string | null;
   useLocalForSimple?: boolean;
   useCloudForComplex?: boolean;
   scheduleConfig?: {
@@ -45,7 +47,7 @@ interface SettingsData {
   aiSettings: AISettings | null;
 }
 
-type Provider = "ollama" | "anthropic" | "openai" | "gemini";
+type Provider = "ollama" | "anthropic" | "openai" | "gemini" | "abacus";
 
 const OLLAMA_MODELS = [
   { id: "llama3.2:3b", label: "Llama 3.2 (3B)", desc: "Recommended · fast · 2GB" },
@@ -53,6 +55,11 @@ const OLLAMA_MODELS = [
   { id: "qwen2.5:1.5b", label: "Qwen 2.5 (1.5B)", desc: "Lightest · 1GB · older computers" },
   { id: "mistral:latest", label: "Mistral 7B", desc: "Strong reasoning · 4GB" },
   { id: "deepseek-coder:6.7b", label: "DeepSeek Coder", desc: "Best for code · 4GB" },
+  { id: "deepseek-r1:8b", label: "DeepSeek R1 (8B)", desc: "Reasoning model · 5GB" },
+  { id: "llama3.1:8b", label: "Llama 3.1 (8B)", desc: "Strong general · 5GB" },
+  { id: "phi4:latest", label: "Phi-4 (14B)", desc: "Microsoft · great reasoning" },
+  { id: "gemma3:12b", label: "Gemma 3 (12B)", desc: "Google · strong & fast" },
+  { id: "custom", label: "Custom model…", desc: "Type any model you have installed" },
 ];
 
 const CLOUD_MODELS: Record<string, { id: string; label: string; desc: string }[]> = {
@@ -136,6 +143,22 @@ const PROVIDER_INFO = {
     ],
     securityNote: "Your API key is like a password. Never share it in a chat, email, or screenshot.",
     getKeyUrl: "https://aistudio.google.com/app/apikey",
+  },
+  abacus: {
+    icon: "⚡",
+    label: "Abacus.ai ChatLLM",
+    sublabel: "Smart routing · picks the best model per task automatically",
+    badge: "SMART",
+    badgeColor: "#AF52DE",
+    steps: [
+      { n: 1, text: "Go to abacus.ai and create a free account" },
+      { n: 2, text: 'Click "ChatLLM" in the left sidebar to open their multi-model chat' },
+      { n: 3, text: 'Go to Settings → API Access and create an API key' },
+      { n: 4, text: "Copy the API key and paste it below" },
+      { n: 5, text: "Runway will automatically pick Claude, GPT-4, or Llama based on the task complexity" },
+    ],
+    securityNote: "Your API key is like a password. Never share it in a chat, email, or screenshot.",
+    getKeyUrl: "https://abacus.ai",
   },
 };
 
@@ -223,7 +246,10 @@ function SettingsContent() {
   const [anthropicKey, setAnthropicKey] = useState("");
   const [openaiKey, setOpenaiKey] = useState("");
   const [geminiKey, setGeminiKey] = useState("");
+  const [abacusKey, setAbacusKey] = useState("");
+  const [abacusEndpoint, setAbacusEndpoint] = useState("https://apps.abacus.ai/api/v0");
   const [ollamaModel, setOllamaModel] = useState("llama3.2:3b");
+  const [customOllamaModel, setCustomOllamaModel] = useState("");
   const [cloudModel, setCloudModel] = useState<Record<string, string>>({
     anthropic: "claude-sonnet-4-6",
     openai: "gpt-4o-mini",
@@ -255,6 +281,7 @@ function SettingsContent() {
         if (d.aiSettings) {
           setProvider((d.aiSettings.llmProvider as Provider) || "ollama");
           setOllamaModel(d.aiSettings.ollamaModel || "llama3.2:3b");
+          if (d.aiSettings.abacusEndpoint) setAbacusEndpoint(d.aiSettings.abacusEndpoint);
           if (d.aiSettings.scheduleConfig) setSchedule(s => ({ ...s, ...d.aiSettings!.scheduleConfig }));
           if (typeof d.aiSettings.useLocalForSimple === "boolean") setUseLocalForSimple(d.aiSettings.useLocalForSimple);
           if (typeof d.aiSettings.useCloudForComplex === "boolean") setUseCloudForComplex(d.aiSettings.useCloudForComplex);
@@ -266,7 +293,8 @@ function SettingsContent() {
   async function handleSaveAI(e: React.FormEvent) {
     e.preventDefault();
     setAiSaving(true); setAiSaved(false);
-    const selectedModel = provider === "ollama" ? ollamaModel : (cloudModel[provider] ?? "");
+    const resolvedOllamaModel = ollamaModel === "custom" ? customOllamaModel.trim() || "llama3.2:3b" : ollamaModel;
+    const selectedModel = provider === "ollama" ? resolvedOllamaModel : (cloudModel[provider] ?? "");
     try {
       await fetch("/api/settings", {
         method: "POST",
@@ -276,13 +304,15 @@ function SettingsContent() {
           anthropicKey,
           openaiKey,
           geminiKey,
+          abacusApiKey: abacusKey,
+          abacusEndpoint,
           ollamaHost: "http://localhost:11434",
-          ollamaModel: provider === "ollama" ? selectedModel : ollamaModel,
+          ollamaModel: provider === "ollama" ? resolvedOllamaModel : ollamaModel,
           selectedModel,
         }),
       });
       setAiSaved(true);
-      setAnthropicKey(""); setOpenaiKey(""); setGeminiKey("");
+      setAnthropicKey(""); setOpenaiKey(""); setGeminiKey(""); setAbacusKey("");
       setShowKey(false);
       const updated = await fetch("/api/settings").then((r) => r.json());
       setData(updated);
@@ -312,12 +342,14 @@ function SettingsContent() {
     if (p === "anthropic") return !!ai?.anthropicKeyLast4;
     if (p === "openai") return !!ai?.openaiKeyLast4;
     if (p === "gemini") return !!ai?.geminiKeyLast4;
+    if (p === "abacus") return !!ai?.abacusKeyLast4;
     return true;
   };
   const keyLast4 = (p: Provider) => {
     if (p === "anthropic") return ai?.anthropicKeyLast4;
     if (p === "openai") return ai?.openaiKeyLast4;
     if (p === "gemini") return ai?.geminiKeyLast4;
+    if (p === "abacus") return ai?.abacusKeyLast4;
     return null;
   };
 
@@ -395,6 +427,13 @@ function SettingsContent() {
                 ))}
               </div>
 
+              <p style={{ fontSize: 11, fontWeight: 700, color: "#AF52DE", textTransform: "uppercase", letterSpacing: 1, margin: "0 0 8px" }}>Smart cloud — auto-picks the right model per task</p>
+              <div style={{ marginBottom: 12 }}>
+                {(["abacus"] as Provider[]).map((p) => (
+                  <ProviderRow key={p} p={p} selected={provider === p} hasKey={hasKey(p)} onSelect={() => setProvider(p)} />
+                ))}
+              </div>
+
               <p style={{ fontSize: 11, fontWeight: 700, color: "#8E8E93", textTransform: "uppercase", letterSpacing: 1, margin: "0 0 8px" }}>Cloud — bring your own API key</p>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {(["anthropic", "openai", "gemini"] as Provider[]).map((p) => (
@@ -429,10 +468,63 @@ function SettingsContent() {
               </p>
 
               {provider === "ollama" && (
-                <ModelPicker models={OLLAMA_MODELS} selected={ollamaModel} onSelect={setOllamaModel} />
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <ModelPicker models={OLLAMA_MODELS} selected={ollamaModel} onSelect={setOllamaModel} />
+                  {ollamaModel === "custom" && (
+                    <input
+                      type="text"
+                      value={customOllamaModel}
+                      onChange={(e) => setCustomOllamaModel(e.target.value)}
+                      placeholder="e.g. phi4:latest, llama3.1:70b, codellama:34b"
+                      style={{ border: "1.5px solid #007AFF", borderRadius: 10, padding: "10px 14px", fontSize: 14, color: "#1D1D1F", outline: "none", fontFamily: "monospace", background: "#F0F7FF" }}
+                    />
+                  )}
+                  <p style={{ fontSize: 12, color: "#8E8E93", margin: 0 }}>
+                    Run <code style={{ background: "#F5F5F7", padding: "1px 5px", borderRadius: 4 }}>ollama list</code> in Terminal to see models you have installed.
+                  </p>
+                </div>
               )}
 
-              {provider !== "ollama" && (
+              {provider === "abacus" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <div style={{ background: "#F9F0FF", border: "1px solid #E8D5FF", borderRadius: 10, padding: "12px 14px" }}>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: "#AF52DE", margin: "0 0 4px" }}>⚡ Smart Model Routing</p>
+                    <p style={{ fontSize: 12, color: "#6E6E73", margin: 0, lineHeight: 1.5 }}>
+                      Simple tasks (status, routing) → <strong>Llama 3.3 70B</strong><br/>
+                      Medium tasks (emails, social, support) → <strong>Claude 3.5 Haiku</strong><br/>
+                      Complex tasks (grants, finance, research) → <strong>Claude 3.5 Sonnet</strong>
+                    </p>
+                  </div>
+                  <div style={{ position: "relative" }}>
+                    <input
+                      type={showKey ? "text" : "password"}
+                      value={abacusKey}
+                      onChange={(e) => setAbacusKey(e.target.value)}
+                      placeholder={hasKey(provider) ? `Key saved (ends in …${keyLast4(provider)}) — paste new key to replace` : "Paste your Abacus.ai API key here"}
+                      autoComplete="new-password"
+                      style={{ width: "100%", border: "1.5px solid #E5E5EA", borderRadius: 10, padding: "12px 48px 12px 14px", fontSize: 14, color: "#1D1D1F", outline: "none", boxSizing: "border-box", fontFamily: "monospace", background: "#FAFAFA" }}
+                    />
+                    <button type="button" onClick={() => setShowKey(!showKey)}
+                      style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#8E8E93", padding: 0, lineHeight: 1 }}>
+                      {showKey ? "🙈" : "👁"}
+                    </button>
+                  </div>
+                  {hasKey(provider) && (
+                    <p style={{ fontSize: 12, color: "#34C759", fontWeight: 600 }}>✓ Abacus.ai key is connected</p>
+                  )}
+                  <div>
+                    <p style={{ fontSize: 12, fontWeight: 600, color: "#6E6E73", margin: "0 0 4px" }}>API Endpoint (optional — leave default unless you have a custom deployment)</p>
+                    <input
+                      type="text"
+                      value={abacusEndpoint}
+                      onChange={(e) => setAbacusEndpoint(e.target.value)}
+                      style={{ width: "100%", border: "1.5px solid #E5E5EA", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#1D1D1F", outline: "none", boxSizing: "border-box", fontFamily: "monospace", background: "#FAFAFA" }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {provider !== "ollama" && provider !== "abacus" && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {/* Key input */}
                   <div style={{ position: "relative" }}>
