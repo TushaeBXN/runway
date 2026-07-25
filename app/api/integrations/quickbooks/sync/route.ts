@@ -7,7 +7,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { QBTokens, qbQuery, refreshTokens, isExpired, parseVendors, parsePayments } from "@/lib/quickbooks";
-import { recalcContractor } from "@/app/api/contractors/route";
+import { recalcContractor } from "@/lib/contractorUtils";
 
 const CLIENT_ID     = process.env.QB_CLIENT_ID ?? "";
 const CLIENT_SECRET = process.env.QB_CLIENT_SECRET ?? "";

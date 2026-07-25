@@ -3,8 +3,9 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { recalcContractor, CONTRACTOR_THRESHOLD } from "@/lib/contractorUtils";
 
-const THRESHOLD = 600; // IRS 1099-NEC reporting threshold
+const THRESHOLD = CONTRACTOR_THRESHOLD;
 const TAX_YEAR = new Date().getFullYear();
 
 export async function GET() {
@@ -60,14 +61,4 @@ export async function POST(req: Request) {
   }
 
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });
-}
-
-// Helper: recalculate totalPaid + needs1099 flag after any payment change
-export async function recalcContractor(contractorId: string) {
-  const payments = await prisma.contractorPayment.findMany({ where: { contractorId } });
-  const total = payments.reduce((s, p) => s + p.amount, 0);
-  await prisma.contractor.update({
-    where: { id: contractorId },
-    data: { totalPaid: total, needs1099: total >= THRESHOLD },
-  });
 }
