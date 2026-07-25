@@ -1,6 +1,23 @@
 import { callLLM } from "@/lib/llm";
 import { getRolePrompt } from "@/lib/agentRoles";
 
+/**
+ * Recursively unwrap Ollama's {type, value} wrapper objects to plain strings.
+ * Ollama sometimes returns {"type":"string","value":"actual text"} instead of "actual text".
+ */
+function normalizePayload(v: unknown): unknown {
+  if (v === null || v === undefined) return v;
+  if (typeof v !== "object") return v;
+  if (Array.isArray(v)) return v.map(normalizePayload);
+  const o = v as Record<string, unknown>;
+  // Unwrap {type, value} / {type, text} / {type, content} wrappers
+  if ("value" in o && Object.keys(o).length <= 3) return normalizePayload(o.value);
+  if ("text" in o && Object.keys(o).length <= 3) return normalizePayload(o.text);
+  if ("content" in o && "type" in o && Object.keys(o).length === 2) return normalizePayload(o.content);
+  // Otherwise recurse into all keys
+  return Object.fromEntries(Object.entries(o).map(([k, val]) => [k, normalizePayload(val)]));
+}
+
 // Maps @mention text → agentId
 const MENTION_MAP: Record<string, string> = {
   marketingagent: "marketingAgent",
@@ -180,7 +197,7 @@ No preamble, no explanation — only the JSON.`;
       content: `Draft ready for your approval — ${preview}`,
       msgType: "approval_card",
       approvalStatus: "pending",
-      payload: JSON.stringify(payload),
+      payload: JSON.stringify(normalizePayload(payload)),
       actionType: "social_post",
     };
   }
@@ -209,7 +226,7 @@ No preamble — only the JSON.`;
       content: `Email draft ready — "${payload.subject ?? "Draft"}"`,
       msgType: "approval_card",
       approvalStatus: "pending",
-      payload: JSON.stringify(payload),
+      payload: JSON.stringify(normalizePayload(payload)),
       actionType: "email",
     };
   }
@@ -241,7 +258,7 @@ Respond with a structured grant strategy memo as JSON:
       content: `Grant strategy ready${payload.topPick ? ` — ${payload.topPick}` : ""}`,
       msgType: "approval_card",
       approvalStatus: "pending",
-      payload: JSON.stringify(payload),
+      payload: JSON.stringify(normalizePayload(payload)),
       actionType: "grant_strategy",
     };
   }
@@ -283,7 +300,7 @@ Respond with an inventory and logistics status report as JSON only:
       content: `Logistics report ready — ${payload.summary ?? "see details"}`,
       msgType: "approval_card",
       approvalStatus: "pending",
-      payload: JSON.stringify(payload),
+      payload: JSON.stringify(normalizePayload(payload)),
       actionType: "inventory_report",
     };
   }
@@ -311,7 +328,7 @@ Draft a customer support response as JSON only:
       content: `Support response ready — "${payload.subject ?? "Draft"}"`,
       msgType: "approval_card",
       approvalStatus: "pending",
-      payload: JSON.stringify(payload),
+      payload: JSON.stringify(normalizePayload(payload)),
       actionType: "support_response",
     };
   }
@@ -343,7 +360,7 @@ Generate a financial summary as JSON only:
       content: `Financial report ready — ${payload.period ?? "P&L Summary"}`,
       msgType: "approval_card",
       approvalStatus: "pending",
-      payload: JSON.stringify(payload),
+      payload: JSON.stringify(normalizePayload(payload)),
       actionType: "financial_report",
     };
   }

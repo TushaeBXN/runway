@@ -723,6 +723,7 @@ export default function TeamPage() {
   const [speakingAgentId, setSpeakingAgentId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const sseRef = useRef<EventSource | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastSpokenIdRef = useRef<string | null>(null);
   const initialLoadDoneRef = useRef(false);
@@ -742,17 +743,48 @@ export default function TeamPage() {
     setMessages(msgs);
   }, []);
 
-  // Load messages when channel changes
+  // Load messages when channel changes, then switch to SSE for live updates
   useEffect(() => {
     if (!activeId) return;
-    setLoadingMessages(true);
-    fetchMessages(activeId).finally(() => setLoadingMessages(false));
 
-    // Poll for new messages every 4s
+    // Close any previous SSE connection and poll fallback
+    sseRef.current?.close();
     if (pollRef.current) clearInterval(pollRef.current);
-    pollRef.current = setInterval(() => fetchMessages(activeId), 4000);
+
+    setLoadingMessages(true);
+    fetchMessages(activeId).finally(() => {
+      setLoadingMessages(false);
+
+      // Open SSE stream for incremental updates after initial load
+      const since = new Date().toISOString();
+      const es = new EventSource(`/api/channels/${activeId}/stream?since=${encodeURIComponent(since)}`);
+      sseRef.current = es;
+
+      es.onmessage = (e) => {
+        try {
+          const newMsgs: ChannelMessage[] = JSON.parse(e.data);
+          if (newMsgs.length > 0) {
+            setMessages((prev) => {
+              const existingIds = new Set(prev.map((m) => m.id));
+              const fresh = newMsgs.filter((m) => !existingIds.has(m.id));
+              return fresh.length > 0 ? [...prev, ...fresh] : prev;
+            });
+          }
+        } catch {}
+      };
+
+      es.onerror = () => {
+        // SSE failed — fall back to polling
+        es.close();
+        if (!pollRef.current) {
+          pollRef.current = setInterval(() => fetchMessages(activeId), 4000);
+        }
+      };
+    });
+
     return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
+      sseRef.current?.close();
+      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
     };
   }, [activeId, fetchMessages]);
 
