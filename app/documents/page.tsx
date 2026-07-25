@@ -53,6 +53,15 @@ function TypeBadge({ type }: { type: string }) {
   );
 }
 
+function toStr(val: unknown): string {
+  if (typeof val === "string") return val;
+  if (val && typeof val === "object") {
+    const o = val as Record<string, unknown>;
+    return String(o.name ?? o.title ?? o.description ?? o.value ?? JSON.stringify(val));
+  }
+  return String(val ?? "");
+}
+
 function MarketResearchView({ content }: { content: MarketResearchContent }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -93,7 +102,7 @@ function MarketResearchView({ content }: { content: MarketResearchContent }) {
               <span style={{ fontSize: 12, color: "#8E8E93", fontWeight: 600 }}>GROWTH DRIVERS</span>
               <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
                 {content.marketAnalysis.growthDrivers.map((d, i) => (
-                  <li key={i} style={{ fontSize: 14, color: "#1D1D1F", marginBottom: 4 }}>{d}</li>
+                  <li key={i} style={{ fontSize: 14, color: "#1D1D1F", marginBottom: 4 }}>{toStr(d)}</li>
                 ))}
               </ul>
             </div>
@@ -114,7 +123,7 @@ function MarketResearchView({ content }: { content: MarketResearchContent }) {
                       fontWeight: 500,
                     }}
                   >
-                    {s}
+                    {toStr(s)}
                   </span>
                 ))}
               </div>
@@ -160,7 +169,7 @@ function MarketResearchView({ content }: { content: MarketResearchContent }) {
         <Section title="AI Leverage Points">
           <ul style={{ margin: 0, paddingLeft: 18 }}>
             {content.aiLeveragePoints.map((p, i) => (
-              <li key={i} style={{ fontSize: 14, color: "#1D1D1F", marginBottom: 6, lineHeight: 1.5 }}>{p}</li>
+              <li key={i} style={{ fontSize: 14, color: "#1D1D1F", marginBottom: 6, lineHeight: 1.5 }}>{toStr(p)}</li>
             ))}
           </ul>
         </Section>

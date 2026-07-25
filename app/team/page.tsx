@@ -162,6 +162,15 @@ function UserAvatar({ size = 32 }: { size?: number }) {
   );
 }
 
+function pStr(val: unknown): string {
+  if (typeof val === "string") return val;
+  if (val && typeof val === "object") {
+    const o = val as Record<string, unknown>;
+    return String(o.value ?? o.text ?? o.content ?? o.name ?? o.description ?? JSON.stringify(val));
+  }
+  return String(val ?? "");
+}
+
 function ApprovalCard({
   msg,
   onDecide,
@@ -388,7 +397,7 @@ function ApprovalCard({
                   X / Twitter
                 </p>
                 <p style={{ fontSize: 13, color: "#1D1D1F", lineHeight: 1.5, margin: 0 }}>
-                  {payload.xPost as string}
+                  {pStr(payload.xPost)}
                 </p>
               </div>
             )}
@@ -407,7 +416,7 @@ function ApprovalCard({
                   LinkedIn
                 </p>
                 <p style={{ fontSize: 13, color: "#1D1D1F", lineHeight: 1.5, margin: 0 }}>
-                  {payload.linkedInPost as string}
+                  {pStr(payload.linkedInPost)}
                 </p>
               </div>
             )}
@@ -418,11 +427,11 @@ function ApprovalCard({
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <div style={{ display: "flex", gap: 6 }}>
               <span style={{ fontSize: 11, fontWeight: 700, color: "#8E8E93", minWidth: 60 }}>TO</span>
-              <span style={{ fontSize: 13, color: "#1D1D1F" }}>{payload.to as string}</span>
+              <span style={{ fontSize: 13, color: "#1D1D1F" }}>{pStr(payload.to)}</span>
             </div>
             <div style={{ display: "flex", gap: 6 }}>
               <span style={{ fontSize: 11, fontWeight: 700, color: "#8E8E93", minWidth: 60 }}>SUBJECT</span>
-              <span style={{ fontSize: 13, fontWeight: 600, color: "#1D1D1F" }}>{payload.subject as string}</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#1D1D1F" }}>{pStr(payload.subject)}</span>
             </div>
             <div
               style={{
@@ -433,7 +442,7 @@ function ApprovalCard({
               }}
             >
               <p style={{ fontSize: 13, color: "#1D1D1F", lineHeight: 1.6, whiteSpace: "pre-wrap", margin: 0 }}>
-                {payload.body as string}
+                {pStr(payload.body)}
               </p>
             </div>
           </div>
@@ -441,19 +450,19 @@ function ApprovalCard({
 
         {msg.actionType === "grant_strategy" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {(payload.topPick as string) && (
+            {payload.topPick && (
               <p style={{ fontSize: 14, fontWeight: 700, color: "#1D1D1F", margin: 0 }}>
-                {payload.topPick as string}
+                {pStr(payload.topPick)}
               </p>
             )}
-            {(payload.funder as string) && (
+            {payload.funder && (
               <p style={{ fontSize: 13, color: "#6E6E73", margin: 0 }}>
-                {payload.funder as string} · {payload.amount as string}
+                {pStr(payload.funder)} · {pStr(payload.amount)}
               </p>
             )}
-            {(payload.hook as string) && (
+            {payload.hook && (
               <p style={{ fontSize: 13, color: "#1D1D1F", lineHeight: 1.5, margin: 0, fontStyle: "italic" }}>
-                "{payload.hook as string}"
+                "{pStr(payload.hook)}"
               </p>
             )}
           </div>
@@ -470,35 +479,35 @@ function ApprovalCard({
             }}
           >
             <p style={{ fontSize: 13, color: "#1D1D1F", lineHeight: 1.6, whiteSpace: "pre-wrap", margin: 0 }}>
-              {(payload.deliverable as string)?.slice(0, 600)}
-              {((payload.deliverable as string)?.length ?? 0) > 600 ? "…" : ""}
+              {pStr(payload.deliverable).slice(0, 600)}
+              {pStr(payload.deliverable).length > 600 ? "…" : ""}
             </p>
           </div>
         )}
 
         {msg.actionType === "support_response" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {(payload.customerIssue as string) && (
+            {payload.customerIssue && (
               <p style={{ fontSize: 12, color: "#6E6E73", margin: 0, fontStyle: "italic" }}>
-                Issue: {payload.customerIssue as string}
+                Issue: {pStr(payload.customerIssue)}
               </p>
             )}
             <div style={{ display: "flex", gap: 6 }}>
               <span style={{ fontSize: 11, fontWeight: 700, color: "#8E8E93", minWidth: 60 }}>TO</span>
-              <span style={{ fontSize: 13, color: "#1D1D1F" }}>{payload.to as string}</span>
+              <span style={{ fontSize: 13, color: "#1D1D1F" }}>{pStr(payload.to)}</span>
             </div>
             <div style={{ display: "flex", gap: 6 }}>
               <span style={{ fontSize: 11, fontWeight: 700, color: "#8E8E93", minWidth: 60 }}>SUBJECT</span>
-              <span style={{ fontSize: 13, fontWeight: 600, color: "#1D1D1F" }}>{payload.subject as string}</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#1D1D1F" }}>{pStr(payload.subject)}</span>
             </div>
             <div style={{ background: "#F5F5F7", borderRadius: 10, padding: "10px 12px", marginTop: 4 }}>
               <p style={{ fontSize: 13, color: "#1D1D1F", lineHeight: 1.6, whiteSpace: "pre-wrap", margin: 0 }}>
-                {typeof payload.body === "string" ? payload.body : typeof payload.body === "object" ? (payload.body as Record<string,string>).value ?? JSON.stringify(payload.body) : ""}
+                {pStr(payload.body)}
               </p>
             </div>
-            {(payload.resolution as string) && (
+            {payload.resolution && (
               <p style={{ fontSize: 12, color: "#34C759", margin: 0, fontWeight: 600 }}>
-                Resolution: {payload.resolution as string}
+                Resolution: {pStr(payload.resolution)}
               </p>
             )}
           </div>
@@ -507,38 +516,38 @@ function ApprovalCard({
         {msg.actionType === "financial_report" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <p style={{ fontSize: 13, fontWeight: 700, color: "#1D1D1F", margin: 0 }}>
-              {payload.period as string}
+              {pStr(payload.period)}
             </p>
             <div style={{ display: "flex", gap: 12 }}>
-              {(payload.totalRevenue as string) && (
+              {payload.totalRevenue && (
                 <div style={{ textAlign: "center" }}>
                   <div style={{ fontSize: 10, fontWeight: 700, color: "#34C759", letterSpacing: 0.5 }}>REVENUE</div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#1D1D1F" }}>{payload.totalRevenue as string}</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#1D1D1F" }}>{pStr(payload.totalRevenue)}</div>
                 </div>
               )}
-              {(payload.totalExpenses as string) && (
+              {payload.totalExpenses && (
                 <div style={{ textAlign: "center" }}>
                   <div style={{ fontSize: 10, fontWeight: 700, color: "#FF3B30", letterSpacing: 0.5 }}>EXPENSES</div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#1D1D1F" }}>{payload.totalExpenses as string}</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#1D1D1F" }}>{pStr(payload.totalExpenses)}</div>
                 </div>
               )}
-              {(payload.netProfit as string) && (
+              {payload.netProfit && (
                 <div style={{ textAlign: "center" }}>
                   <div style={{ fontSize: 10, fontWeight: 700, color: "#007AFF", letterSpacing: 0.5 }}>NET</div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#1D1D1F" }}>{payload.netProfit as string}</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#1D1D1F" }}>{pStr(payload.netProfit)}</div>
                 </div>
               )}
             </div>
-            {(payload.cashPosition as string) && (
-              <p style={{ fontSize: 12, color: "#6E6E73", margin: 0 }}>Cash: {payload.cashPosition as string}</p>
+            {payload.cashPosition && (
+              <p style={{ fontSize: 12, color: "#6E6E73", margin: 0 }}>Cash: {pStr(payload.cashPosition)}</p>
             )}
           </div>
         )}
 
         {msg.actionType === "inventory_report" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {(payload.summary as string) && (
-              <p style={{ fontSize: 13, color: "#1D1D1F", margin: 0 }}>{payload.summary as string}</p>
+            {payload.summary && (
+              <p style={{ fontSize: 13, color: "#1D1D1F", margin: 0 }}>{pStr(payload.summary)}</p>
             )}
             {Array.isArray(payload.lowStock) && (payload.lowStock as unknown[]).length > 0 && (
               <div>
