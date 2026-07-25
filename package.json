@@ -12,11 +12,8 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
-    "@libsql/client": "^0.17.0",
     "@prisma/adapter-better-sqlite3": "^7.5.0",
-    "@prisma/adapter-libsql": "^7.5.0",
     "@prisma/client": "^7.5.0",
-    "@stripe/stripe-js": "^8.9.0",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.6.2",
     "concurrently": "^9.2.1",
