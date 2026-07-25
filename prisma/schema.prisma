@@ -31,6 +31,7 @@ model User {
   timeEntries        TimeEntry[]
   scheduledPosts     ScheduledPost[]
   grantApplications  GrantApplication[]
+  passwordResetTokens PasswordResetToken[]
 }
 
 model OrgProfile {
@@ -514,4 +515,13 @@ model GrantApplication {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
