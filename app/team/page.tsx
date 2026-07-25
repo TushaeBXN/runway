@@ -450,17 +450,17 @@ function ApprovalCard({
 
         {msg.actionType === "grant_strategy" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {payload.topPick && (
+            {!!payload.topPick && (
               <p style={{ fontSize: 14, fontWeight: 700, color: "#1D1D1F", margin: 0 }}>
                 {pStr(payload.topPick)}
               </p>
             )}
-            {payload.funder && (
+            {!!payload.funder && (
               <p style={{ fontSize: 13, color: "#6E6E73", margin: 0 }}>
                 {pStr(payload.funder)} · {pStr(payload.amount)}
               </p>
             )}
-            {payload.hook && (
+            {!!payload.hook && (
               <p style={{ fontSize: 13, color: "#1D1D1F", lineHeight: 1.5, margin: 0, fontStyle: "italic" }}>
                 "{pStr(payload.hook)}"
               </p>
@@ -487,7 +487,7 @@ function ApprovalCard({
 
         {msg.actionType === "support_response" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {payload.customerIssue && (
+            {!!payload.customerIssue && (
               <p style={{ fontSize: 12, color: "#6E6E73", margin: 0, fontStyle: "italic" }}>
                 Issue: {pStr(payload.customerIssue)}
               </p>
@@ -505,7 +505,7 @@ function ApprovalCard({
                 {pStr(payload.body)}
               </p>
             </div>
-            {payload.resolution && (
+            {!!payload.resolution && (
               <p style={{ fontSize: 12, color: "#34C759", margin: 0, fontWeight: 600 }}>
                 Resolution: {pStr(payload.resolution)}
               </p>
@@ -519,26 +519,26 @@ function ApprovalCard({
               {pStr(payload.period)}
             </p>
             <div style={{ display: "flex", gap: 12 }}>
-              {payload.totalRevenue && (
+              {!!payload.totalRevenue && (
                 <div style={{ textAlign: "center" }}>
                   <div style={{ fontSize: 10, fontWeight: 700, color: "#34C759", letterSpacing: 0.5 }}>REVENUE</div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: "#1D1D1F" }}>{pStr(payload.totalRevenue)}</div>
                 </div>
               )}
-              {payload.totalExpenses && (
+              {!!payload.totalExpenses && (
                 <div style={{ textAlign: "center" }}>
                   <div style={{ fontSize: 10, fontWeight: 700, color: "#FF3B30", letterSpacing: 0.5 }}>EXPENSES</div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: "#1D1D1F" }}>{pStr(payload.totalExpenses)}</div>
                 </div>
               )}
-              {payload.netProfit && (
+              {!!payload.netProfit && (
                 <div style={{ textAlign: "center" }}>
                   <div style={{ fontSize: 10, fontWeight: 700, color: "#007AFF", letterSpacing: 0.5 }}>NET</div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: "#1D1D1F" }}>{pStr(payload.netProfit)}</div>
                 </div>
               )}
             </div>
-            {payload.cashPosition && (
+            {!!payload.cashPosition && (
               <p style={{ fontSize: 12, color: "#6E6E73", margin: 0 }}>Cash: {pStr(payload.cashPosition)}</p>
             )}
           </div>
@@ -546,7 +546,7 @@ function ApprovalCard({
 
         {msg.actionType === "inventory_report" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {payload.summary && (
+            {!!payload.summary && (
               <p style={{ fontSize: 13, color: "#1D1D1F", margin: 0 }}>{pStr(payload.summary)}</p>
             )}
             {Array.isArray(payload.lowStock) && (payload.lowStock as unknown[]).length > 0 && (

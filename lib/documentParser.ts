@@ -43,7 +43,9 @@ async function parsePDF(buffer: Buffer, fileName: string): Promise<ParsedDocumen
   const tmp = join(tmpdir(), `${randomUUID()}.pdf`);
   await writeFile(tmp, buffer);
   try {
-    const pdfParse = (await import("pdf-parse")).default;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mod = (await import("pdf-parse")) as any;
+    const pdfParse = (mod.default ?? mod) as (buf: Buffer) => Promise<{ text: string; numpages: number }>;
     const result = await pdfParse(buffer);
     return {
       text: result.text,
