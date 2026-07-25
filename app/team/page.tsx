@@ -726,6 +726,7 @@ export default function TeamPage() {
   const sseRef = useRef<EventSource | null>(null);
   const sseRetryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sseAttemptsRef = useRef(0);
+  const sseLastSinceRef = useRef<string>(new Date().toISOString());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastSpokenIdRef = useRef<string | null>(null);
   const initialLoadDoneRef = useRef(false);
@@ -770,9 +771,14 @@ export default function TeamPage() {
       sseRef.current = es;
 
       es.onmessage = (e) => {
+        // Update cursor from SSE event id so reconnects don't lose messages
+        if (e.lastEventId) sseLastSinceRef.current = e.lastEventId;
         try {
           const newMsgs: ChannelMessage[] = JSON.parse(e.data);
           if (newMsgs.length > 0) {
+            // Also advance cursor from message timestamps as a fallback
+            const last = newMsgs[newMsgs.length - 1];
+            if (last?.createdAt) sseLastSinceRef.current = last.createdAt;
             setMessages((prev) => {
               const existingIds = new Set(prev.map((m) => m.id));
               const fresh = newMsgs.filter((m) => !existingIds.has(m.id));
@@ -789,13 +795,14 @@ export default function TeamPage() {
 
         sseAttemptsRef.current += 1;
         if (sseAttemptsRef.current <= 4) {
-          // Exponential backoff: 1s, 2s, 4s, 8s
+          // Exponential backoff: 1s, 2s, 4s, 8s — reconnect from last known cursor
           const delay = Math.min(1000 * Math.pow(2, sseAttemptsRef.current - 1), 8000);
+          console.log(`[SSE] retry ${sseAttemptsRef.current}/4 in ${delay}ms`);
           sseRetryRef.current = setTimeout(() => {
-            if (!destroyed) openSSE(new Date().toISOString());
+            if (!destroyed) openSSE(sseLastSinceRef.current);
           }, delay);
         } else {
-          // Give up on SSE — fall back to polling
+          console.log("[SSE] max retries reached, falling back to polling");
           startPollingFallback();
         }
       };
@@ -804,7 +811,9 @@ export default function TeamPage() {
     setLoadingMessages(true);
     fetchMessages(activeId).finally(() => {
       setLoadingMessages(false);
-      if (!destroyed) openSSE(new Date().toISOString());
+      const since = new Date().toISOString();
+      sseLastSinceRef.current = since;
+      if (!destroyed) openSSE(since);
     });
 
     return () => {

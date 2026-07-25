@@ -16,6 +16,9 @@ export async function GET(
   const { id: channelId } = await params;
   const sinceParam = req.nextUrl.searchParams.get("since");
   let since = sinceParam ? new Date(sinceParam) : new Date(Date.now() - 60_000);
+  const userId = (session.user as { id?: string }).id ?? "unknown";
+
+  console.log(`[SSE] open  channel=${channelId} user=${userId} since=${since.toISOString()}`);
 
   const encoder = new TextEncoder();
 
@@ -28,10 +31,11 @@ export async function GET(
         try { controller.enqueue(encoder.encode(payload)); } catch { /* stream gone */ }
       }
 
-      function close() {
+      function close(reason = "disconnect") {
         if (closed) return;
         closed = true;
         clearInterval(interval);
+        console.log(`[SSE] close channel=${channelId} user=${userId} reason=${reason}`);
         try { controller.close(); } catch { /* already closed */ }
       }
 
@@ -54,8 +58,8 @@ export async function GET(
             send(": ping\n\n");
           }
         } catch (err) {
-          console.error("[SSE] poll error:", err);
-          close();
+          console.error(`[SSE] poll error channel=${channelId}:`, err);
+          close("db-error");
         }
       }
 
@@ -64,7 +68,7 @@ export async function GET(
 
       const interval = setInterval(poll, 2000);
 
-      req.signal.addEventListener("abort", close);
+      req.signal.addEventListener("abort", () => close("client-abort"));
     },
   });
 
