@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { PROVIDER_PRESETS } from "@/lib/emailProviders";
+import { TaxCalendar } from "./components/TaxCalendar";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -106,7 +107,8 @@ export default function CompliancePage() {
   const { status } = useSession();
   const router = useRouter();
   const [data, setData] = useState<ComplianceData | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "business" | "email" | "services" | "reminders">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "business" | "email" | "services" | "reminders" | "calendar">("overview");
+  const [seeding, setSeeding] = useState(false);
 
   // Business info state
   const [biz, setBiz] = useState<BusinessInfo>({});
@@ -171,6 +173,17 @@ export default function CompliancePage() {
     fetchData();
   }
 
+  async function seedDeadlines(replace: boolean) {
+    if (!biz.taxEntityType) return;
+    setSeeding(true);
+    await fetch("/api/compliance/seed-deadlines", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ entityType: biz.taxEntityType, replace }),
+    });
+    setSeeding(false);
+    fetchData();
+  }
+
   async function testEmailConnection() {
     setEmailTesting(true);
     setEmailTestResult(null);
@@ -231,6 +244,7 @@ export default function CompliancePage() {
 
   const TABS = [
     { id: "overview", label: "Overview" },
+    { id: "calendar", label: "Tax Calendar" },
     { id: "business", label: "Business ID" },
     { id: "email", label: "Email Accounts" },
     { id: "services", label: "Connected Services" },
@@ -356,6 +370,18 @@ export default function CompliancePage() {
             </div>
           </Card>
         </div>
+      )}
+
+      {/* ── TAX CALENDAR tab ── */}
+      {activeTab === "calendar" && (
+        <TaxCalendar
+          reminders={data.reminders}
+          entityType={biz.taxEntityType ?? ""}
+          onSeedDeadlines={seedDeadlines}
+          onMarkPaid={markPaid}
+          onDelete={deleteReminder}
+          seeding={seeding}
+        />
       )}
 
       {/* ── BUSINESS ID tab ── */}

@@ -115,7 +115,7 @@ Return valid JSON only.`;
     await prisma.upworkJob.create({
       data: {
         title: job.title,
-        budget: job.budget,
+        budget: String(job.budget),
         description: job.description,
         skills: job.skills.join(", "),
         score: job.score,

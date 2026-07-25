@@ -21,6 +21,10 @@ model User {
   businessReminders  BusinessReminder[]
   emailAccounts      EmailAccount[]
   connectedServices  ConnectedService[]
+  contractors        Contractor[]
+  gumroadSales       GumroadSale[]
+  reserveFund        ReserveFund?
+  reserveTransactions ReserveFundTransaction[]
 }
 
 model OrgProfile {
@@ -310,4 +314,79 @@ model ChannelMessage {
   actionType     String?  // "email" | "social_post" | "job_deliverable" | "grant_strategy"
   createdAt      DateTime @default(now())
   channel        Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+}
+
+// ── 1099 Contractor Tracking ──────────────────────────────────────────────
+
+model Contractor {
+  id           String              @id @default(cuid())
+  userId       String
+  name         String
+  email        String?
+  ein          String?             // EIN or SSN (last 4 only for display)
+  address      String?
+  businessName String?
+  taxYear      Int                 @default(2026)
+  totalPaid    Float               @default(0)
+  needs1099    Boolean             @default(false)
+  form1099Sent Boolean             @default(false)
+  sentAt       DateTime?
+  notes        String?
+  isActive     Boolean             @default(true)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payments     ContractorPayment[]
+}
+
+model ContractorPayment {
+  id           String     @id @default(cuid())
+  contractorId String
+  userId       String
+  amount       Float
+  paidOn       DateTime
+  description  String?
+  method       String?    // "check" | "ach" | "wire" | "paypal" | "cash" | "other"
+  reference    String?    // check number, transaction ID, etc.
+  createdAt    DateTime   @default(now())
+  contractor   Contractor @relation(fields: [contractorId], references: [id], onDelete: Cascade)
+}
+
+// ── Gumroad Sales & Reserve Fund ─────────────────────────────────────────
+
+model GumroadSale {
+  id           String   @id @default(cuid())
+  userId       String
+  saleId       String   @unique  // Gumroad sale ID
+  productName  String
+  productId    String?
+  amount       Float             // USD
+  fee          Float    @default(0)
+  net          Float             // amount - fee
+  email        String?           // buyer email
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ReserveFund {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  label          String   @default("Compliance Reserve")
+  balance        Float    @default(0)
+  targetAmount   Float    @default(0)
+  autoAllocatePct Float   @default(20) // % of Gumroad net to auto-allocate
+  notes          String?
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ReserveFundTransaction {
+  id          String   @id @default(cuid())
+  userId      String
+  amount      Float
+  type        String   // "deposit" | "withdrawal"
+  source      String   // "gumroad" | "manual"
+  description String?
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
