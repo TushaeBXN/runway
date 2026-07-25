@@ -16,6 +16,7 @@ const links = [
   { href: "/contractors", label: "1099 Tracker" },
   { href: "/reserve-fund", label: "Reserve Fund" },
   { href: "/inbox", label: "Inbox" },
+  { href: "/domains", label: "Domains" },
   { href: "/hardware-fund", label: "Hardware Fund" },
   { href: "/team", label: "Team" },
   { href: "/chat", label: "Chat" },
