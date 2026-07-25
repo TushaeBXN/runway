@@ -259,6 +259,12 @@ function SettingsContent() {
   const [aiSaved, setAiSaved] = useState(false);
   const [showKey, setShowKey] = useState(false);
 
+  // QuickBooks state
+  const [qbStatus, setQbStatus] = useState<{ connected: boolean; authUrl: string | null; hasCredentials: boolean } | null>(null);
+  const [qbSyncing, setQbSyncing] = useState(false);
+  const [qbSyncResult, setQbSyncResult] = useState<{ contractorsCreated: number; paymentsImported: number } | null>(null);
+  const [qbDisconnecting, setQbDisconnecting] = useState(false);
+
   // Schedule state
   const [schedule, setSchedule] = useState({
     businessStartHour: 4, businessStartMin: 30,
@@ -276,6 +282,7 @@ function SettingsContent() {
   useEffect(() => {
     if (status === "unauthenticated") { router.push("/login"); return; }
     if (status === "authenticated") {
+      fetch("/api/integrations/quickbooks").then((r) => r.json()).then((d) => setQbStatus(d)).catch(() => null);
       fetch("/api/settings").then((r) => r.json()).then((d: SettingsData) => {
         setData(d);
         if (d.aiSettings) {
@@ -318,6 +325,21 @@ function SettingsContent() {
       setData(updated);
       setTimeout(() => setAiSaved(false), 3000);
     } finally { setAiSaving(false); }
+  }
+
+  async function syncQuickBooks() {
+    setQbSyncing(true); setQbSyncResult(null);
+    const res = await fetch("/api/integrations/quickbooks/sync", { method: "POST" });
+    const d = await res.json();
+    if (d.ok) setQbSyncResult(d);
+    setQbSyncing(false);
+  }
+
+  async function disconnectQuickBooks() {
+    setQbDisconnecting(true);
+    await fetch("/api/integrations/quickbooks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "disconnect" }) });
+    setQbStatus((s) => s ? { ...s, connected: false } : s);
+    setQbDisconnecting(false);
   }
 
   async function saveSchedule() {
@@ -757,6 +779,61 @@ function SettingsContent() {
             <a href="/onboarding" style={{ display: "inline-block", background: "#1D1D1F", color: "#fff", borderRadius: 10, padding: "10px 18px", fontSize: 14, fontWeight: 600, textDecoration: "none" }}>Set up org profile</a>
           </Card>
         )}
+
+        {/* QuickBooks Integration */}
+        <div style={{ marginTop: 24 }}>
+          <h2 style={{ fontSize: 20, fontWeight: 700, color: "#1D1D1F", marginBottom: 4 }}>Integrations</h2>
+          <p style={{ fontSize: 14, color: "#6E6E73", marginBottom: 16 }}>Connect third-party services to sync contractor data and accounting records.</p>
+          <Card>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
+              <span style={{ fontSize: 28 }}>📊</span>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: 15, fontWeight: 700, color: "#1D1D1F", margin: 0 }}>QuickBooks Online</p>
+                <p style={{ fontSize: 12, color: "#8E8E93", margin: "2px 0 0" }}>Sync 1099-eligible vendors and payments directly into the contractor tracker</p>
+              </div>
+              {qbStatus?.connected ? (
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#34C759", background: "#F0FFF4", padding: "4px 10px", borderRadius: 8 }}>✓ Connected</span>
+              ) : (
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#8E8E93", background: "#F5F5F7", padding: "4px 10px", borderRadius: 8 }}>Not connected</span>
+              )}
+            </div>
+
+            {qbStatus?.connected ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {qbSyncResult && (
+                  <div style={{ background: "#F0FFF4", border: "1px solid #34C75933", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#1D1D1F" }}>
+                    ✓ Sync complete — {qbSyncResult.contractorsCreated} new contractors, {qbSyncResult.paymentsImported} payments imported
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={syncQuickBooks} disabled={qbSyncing}
+                    style={{ background: "#007AFF", color: "#fff", border: "none", borderRadius: 9, padding: "9px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                    {qbSyncing ? "Syncing…" : "Sync Now"}
+                  </button>
+                  <a href="/contractors" style={{ background: "#F5F5F7", color: "#1D1D1F", border: "none", borderRadius: 9, padding: "9px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", textDecoration: "none", display: "inline-flex", alignItems: "center" }}>
+                    View 1099 Tracker
+                  </a>
+                  <button onClick={disconnectQuickBooks} disabled={qbDisconnecting}
+                    style={{ background: "transparent", color: "#FF3B30", border: "1.5px solid #FF3B30", borderRadius: 9, padding: "9px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                    {qbDisconnecting ? "…" : "Disconnect"}
+                  </button>
+                </div>
+              </div>
+            ) : qbStatus?.authUrl ? (
+              <a href={qbStatus.authUrl}
+                style={{ display: "inline-block", background: "#2CA01C", color: "#fff", borderRadius: 10, padding: "10px 20px", fontSize: 14, fontWeight: 700, textDecoration: "none" }}>
+                Connect QuickBooks Online
+              </a>
+            ) : (
+              <div style={{ background: "#FFF8EE", border: "1px solid #FF950033", borderRadius: 10, padding: "12px 14px" }}>
+                <p style={{ fontSize: 13, color: "#E65100", margin: 0 }}>
+                  Add <code>QB_CLIENT_ID</code> and <code>QB_CLIENT_SECRET</code> to your <code>.env.local</code> to enable QuickBooks OAuth.
+                  Get credentials at <strong>developer.intuit.com</strong> → Create App → QuickBooks Online.
+                </p>
+              </div>
+            )}
+          </Card>
+        </div>
       </div>
     </div>
   );
