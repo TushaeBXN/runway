@@ -40,6 +40,7 @@ const nextConfig: NextConfig = {
     "ollama",
     "node-cron",
     "imapflow",
+    "pdfkit",
   ],
   async headers() {
     return [
