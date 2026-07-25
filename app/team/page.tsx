@@ -724,6 +724,8 @@ export default function TeamPage() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sseRef = useRef<EventSource | null>(null);
+  const sseRetryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sseAttemptsRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastSpokenIdRef = useRef<string | null>(null);
   const initialLoadDoneRef = useRef(false);
@@ -747,17 +749,24 @@ export default function TeamPage() {
   useEffect(() => {
     if (!activeId) return;
 
-    // Close any previous SSE connection and poll fallback
+    // Tear down everything from the previous channel
     sseRef.current?.close();
-    if (pollRef.current) clearInterval(pollRef.current);
+    sseRef.current = null;
+    if (sseRetryRef.current) { clearTimeout(sseRetryRef.current); sseRetryRef.current = null; }
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+    sseAttemptsRef.current = 0;
 
-    setLoadingMessages(true);
-    fetchMessages(activeId).finally(() => {
-      setLoadingMessages(false);
+    let destroyed = false; // true after cleanup runs — prevents stale closures acting
 
-      // Open SSE stream for incremental updates after initial load
-      const since = new Date().toISOString();
-      const es = new EventSource(`/api/channels/${activeId}/stream?since=${encodeURIComponent(since)}`);
+    function startPollingFallback() {
+      if (destroyed || pollRef.current) return;
+      pollRef.current = setInterval(() => fetchMessages(activeId!), 4000);
+    }
+
+    function openSSE(since: string) {
+      if (destroyed) return;
+      const url = `/api/channels/${activeId}/stream?since=${encodeURIComponent(since)}`;
+      const es = new EventSource(url);
       sseRef.current = es;
 
       es.onmessage = (e) => {
@@ -774,16 +783,35 @@ export default function TeamPage() {
       };
 
       es.onerror = () => {
-        // SSE failed — fall back to polling
         es.close();
-        if (!pollRef.current) {
-          pollRef.current = setInterval(() => fetchMessages(activeId), 4000);
+        sseRef.current = null;
+        if (destroyed) return;
+
+        sseAttemptsRef.current += 1;
+        if (sseAttemptsRef.current <= 4) {
+          // Exponential backoff: 1s, 2s, 4s, 8s
+          const delay = Math.min(1000 * Math.pow(2, sseAttemptsRef.current - 1), 8000);
+          sseRetryRef.current = setTimeout(() => {
+            if (!destroyed) openSSE(new Date().toISOString());
+          }, delay);
+        } else {
+          // Give up on SSE — fall back to polling
+          startPollingFallback();
         }
       };
+    }
+
+    setLoadingMessages(true);
+    fetchMessages(activeId).finally(() => {
+      setLoadingMessages(false);
+      if (!destroyed) openSSE(new Date().toISOString());
     });
 
     return () => {
+      destroyed = true;
       sseRef.current?.close();
+      sseRef.current = null;
+      if (sseRetryRef.current) { clearTimeout(sseRetryRef.current); sseRetryRef.current = null; }
       if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
     };
   }, [activeId, fetchMessages]);

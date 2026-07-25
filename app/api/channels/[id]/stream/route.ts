@@ -20,38 +20,51 @@ export async function GET(
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
-    async start(controller) {
-      // Send a heartbeat immediately so the client knows it's connected
-      controller.enqueue(encoder.encode(": ping\n\n"));
+    start(controller) {
+      let closed = false;
 
-      const poll = async () => {
+      function send(payload: string) {
+        if (closed) return;
+        try { controller.enqueue(encoder.encode(payload)); } catch { /* stream gone */ }
+      }
+
+      function close() {
+        if (closed) return;
+        closed = true;
+        clearInterval(interval);
+        try { controller.close(); } catch { /* already closed */ }
+      }
+
+      async function poll() {
+        if (closed) return;
         try {
           const messages = await prisma.channelMessage.findMany({
             where: { channelId, createdAt: { gt: since } },
             orderBy: { createdAt: "asc" },
           });
 
+          if (closed) return; // client disconnected while we were querying
+
           if (messages.length > 0) {
             since = messages[messages.length - 1].createdAt;
-            const data = JSON.stringify(messages);
-            controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+            // Include last message id so client can reconnect with a precise cursor
+            const lastId = messages[messages.length - 1].id;
+            send(`id: ${lastId}\ndata: ${JSON.stringify(messages)}\n\n`);
           } else {
-            // Keep-alive heartbeat every poll cycle
-            controller.enqueue(encoder.encode(": ping\n\n"));
+            send(": ping\n\n");
           }
-        } catch {
-          controller.close();
+        } catch (err) {
+          console.error("[SSE] poll error:", err);
+          close();
         }
-      };
+      }
 
-      // Poll every 2s on the server side — one persistent connection beats
-      // a new HTTP request every 4s from the client
+      // Immediate heartbeat so client knows the connection is live
+      send(": ping\n\n");
+
       const interval = setInterval(poll, 2000);
 
-      req.signal.addEventListener("abort", () => {
-        clearInterval(interval);
-        controller.close();
-      });
+      req.signal.addEventListener("abort", close);
     },
   });
 
