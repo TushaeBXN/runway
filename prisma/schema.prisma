@@ -25,6 +25,7 @@ model User {
   gumroadSales       GumroadSale[]
   reserveFund        ReserveFund?
   reserveTransactions ReserveFundTransaction[]
+  ingestedEmails     IngestedEmail[]
 }
 
 model OrgProfile {
@@ -378,6 +379,31 @@ model ReserveFund {
   notes          String?
   updatedAt      DateTime @updatedAt
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ── Email Ingestion ───────────────────────────────────────────────────────
+
+model IngestedEmail {
+  id          String   @id @default(cuid())
+  userId      String
+  accountId   String
+  uid         Int
+  subject     String
+  fromEmail   String
+  fromName    String?
+  receivedAt  DateTime
+  body        String
+  category    String   @default("other") // "grant"|"donor"|"support"|"vendor"|"compliance"|"other"
+  priority    String   @default("normal") // "urgent"|"normal"|"low"
+  status      String   @default("pending") // "pending"|"in_review"|"replied"|"archived"
+  agentRoute  String?
+  draftId     String?
+  summary     String?
+  notes       String?
+  processedAt DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, uid])
 }
 
 model ReserveFundTransaction {

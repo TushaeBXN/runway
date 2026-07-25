@@ -141,3 +141,61 @@ export async function testConnection(config: EmailAccountConfig): Promise<{ ok: 
     return { ok: false, error: err instanceof Error ? err.message : "Connection failed" };
   }
 }
+
+// Mark a list of UIDs as read in INBOX
+export async function markAsRead(config: EmailAccountConfig, uids: number[]): Promise<void> {
+  if (uids.length === 0) return;
+  const { ImapFlow } = await import("imapflow");
+  const client = new ImapFlow({
+    host: config.host, port: config.port, secure: true,
+    auth: { user: config.username, pass: config.appPassword }, logger: false,
+  });
+  try {
+    await client.connect();
+    const lock = await client.getMailboxLock("INBOX");
+    try {
+      await client.messageFlagsAdd(uids.join(","), ["\\Seen"], { uid: true });
+    } finally { lock.release(); }
+    await client.logout();
+  } catch { await client.logout().catch(() => null); }
+}
+
+// Derive SMTP host from IMAP host (covers Gmail, Outlook, Yahoo, and generic providers)
+function smtpHostFromImap(imapHost: string): string {
+  if (imapHost.includes("gmail")) return "smtp.gmail.com";
+  if (imapHost.includes("outlook") || imapHost.includes("office365")) return "smtp.office365.com";
+  if (imapHost.includes("yahoo")) return "smtp.mail.yahoo.com";
+  return imapHost.replace(/^imap\./, "smtp.");
+}
+
+export interface SendEmailOptions {
+  config: EmailAccountConfig;
+  to: string;
+  subject: string;
+  body: string;
+  replyTo?: string;
+}
+
+// Send an email via SMTP using the same app-password credential
+export async function sendEmail(opts: SendEmailOptions): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const nodemailer = await import("nodemailer");
+    const smtpHost = smtpHostFromImap(opts.config.host);
+    const transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: 587,
+      secure: false,
+      auth: { user: opts.config.username, pass: opts.config.appPassword },
+    });
+    await transporter.sendMail({
+      from: opts.config.username,
+      to: opts.to,
+      subject: opts.subject,
+      text: opts.body,
+      ...(opts.replyTo ? { replyTo: opts.replyTo } : {}),
+    });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Send failed" };
+  }
+}
