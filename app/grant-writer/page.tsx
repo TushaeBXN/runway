@@ -98,7 +98,7 @@ export default function GrantWriterPage() {
   if (status === "loading" || loading) return <div style={{ padding: 24, color: "#8E8E93" }}>Loading…</div>;
 
   return (
-    <div style={{ display: "flex", height: "calc(100vh - var(--nav-height) - 24px)", margin: "-24px -24px 0", overflow: "hidden", background: "#F5F5F7" }}>
+    <div style={{ display: "flex", height: "calc(100vh - var(--nav-height) - 24px)", margin: "-24px 0 0", overflow: "hidden", background: "#F5F5F7" }}>
       {/* Sidebar */}
       <div style={{ width: 270, background: "#1D1D1F", display: "flex", flexDirection: "column", overflowY: "auto", flexShrink: 0 }}>
         <div style={{ padding: "20px 16px 12px" }}>

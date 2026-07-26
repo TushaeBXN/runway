@@ -210,7 +210,7 @@ export default function TeamPage() {
   const pendingCount = messages.filter((m) => m.msgType === "approval_card" && m.approvalStatus === "pending").length;
 
   return (
-    <div style={{ display: "flex", height: "calc(100vh - var(--nav-height) - 24px)", background: "#F5F5F7", overflow: "hidden", margin: "-24px -24px 0" }}>
+    <div style={{ display: "flex", height: "calc(100vh - var(--nav-height) - 24px)", background: "#F5F5F7", overflow: "hidden", margin: "-24px 0 0" }}>
       <ChannelSidebar channels={channels} activeId={activeId} onSelect={setActiveId} />
 
       {/* Main chat area */}

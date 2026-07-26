@@ -119,7 +119,7 @@ export default function InboxPage() {
   if (status === "loading" || loading) return <div style={{ padding: 24, color: "#8E8E93" }}>Loading…</div>;
 
   return (
-    <div style={{ display: "flex", height: "calc(100vh - var(--nav-height) - 24px)", margin: "-24px -24px 0", background: "#F5F5F7", overflow: "hidden" }}>
+    <div style={{ display: "flex", height: "calc(100vh - var(--nav-height) - 24px)", margin: "-24px 0 0", background: "#F5F5F7", overflow: "hidden" }}>
 
       {/* Left sidebar */}
       <div style={{ width: 260, background: "#1D1D1F", display: "flex", flexDirection: "column", flexShrink: 0, overflowY: "auto" }}>
