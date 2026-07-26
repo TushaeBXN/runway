@@ -1,6 +1,4 @@
 import cron from "node-cron";
-import React from "react";
-import { renderToBuffer } from "@react-pdf/renderer";
 import { runCEOAgent } from "@/lib/agents/ceoAgent";
 import { runMarketingAgent } from "@/lib/agents/marketingAgent";
 import { runDevAgent } from "@/lib/agents/devAgent";
@@ -12,7 +10,6 @@ import { runHardwareFundAgent } from "@/lib/agents/hardwareFundAgent";
 import { prisma } from "@/lib/prisma";
 import { getResend } from "@/lib/resend";
 import { getBoardReportData } from "@/lib/boardReportData";
-import { BoardReportPdf } from "@/components/pdf/BoardReportPdf";
 import { getProvider } from "@/lib/llm";
 import { DEFAULT_SCHEDULE, toCronExpressions, type ScheduleConfig } from "@/lib/agentSchedule";
 import { routeModel, buildAgentContext, AGENT_COMPLEXITY } from "@/lib/modelRouter";
@@ -24,6 +21,31 @@ import {
   orgSlug,
   engramAvailable,
 } from "@/lib/engram";
+
+// ── Cron logger ──────────────────────────────────────────────────
+// Writes to activityLog so every cron run is visible in the dashboard.
+async function logCron(job: string, status: "start" | "success" | "error", detail?: string) {
+  const icon  = status === "start" ? "⏱" : status === "success" ? "✓" : "✗";
+  const label = `${icon} Cron [${job}]${detail ? `: ${detail}` : ""}`;
+  console.log(`[Scheduler] ${label}`);
+  try {
+    await prisma.activityLog.create({ data: { agentId: "system", label } });
+  } catch { /* never throw from a logger */ }
+}
+
+// ── Cron wrapper ─────────────────────────────────────────────────
+// Runs an async job, logging start/success/error to activityLog.
+function cronJob(name: string, fn: () => Promise<void>): () => void {
+  return () => {
+    logCron(name, "start")
+      .then(() => fn())
+      .then(() => logCron(name, "success"))
+      .catch((err: unknown) => {
+        const detail = err instanceof Error ? err.message : String(err);
+        logCron(name, "error", detail).catch(() => {});
+      });
+  };
+}
 
 async function markAgentTasksCompleted(agentId: string, label: string) {
   try {
@@ -329,35 +351,23 @@ export async function initScheduler(): Promise<void> {
   console.log(`  Off-hours:     ${crons.offHours}`);
 
   // Business hours loop — default 4:30 AM Mon–Fri
-  activeCrons.push(cron.schedule(crons.business, () => {
-    const label = `${cfg.businessStartHour}:${String(cfg.businessStartMin).padStart(2,"0")} AM`;
-    console.log(`[Runway] Business loop triggered (${label})`);
-    runNightlyLoop().catch(err => console.error("[Runway] Business loop error:", err));
-  }));
+  activeCrons.push(cron.schedule(crons.business, cronJob("business-loop", () => runNightlyLoop())));
 
   // Cool-down — default 5:30 PM Mon–Fri
-  activeCrons.push(cron.schedule(crons.coolDown, () => {
-    console.log("[Runway] Cool-down triggered");
-    runCoolDown().catch(err => console.error("[Runway] Cool-down error:", err));
-  }));
+  activeCrons.push(cron.schedule(crons.coolDown, cronJob("cool-down", () => runCoolDown())));
 
   // Off-hours loop — default 6:00 PM daily (incl. weekends if configured)
-  activeCrons.push(cron.schedule(crons.offHours, () => {
-    console.log("[Runway] Off-hours loop triggered");
-    runOffHoursLoop().catch(err => console.error("[Runway] Off-hours loop error:", err));
-  }));
+  activeCrons.push(cron.schedule(crons.offHours, cronJob("off-hours-loop", () => runOffHoursLoop())));
 
   // Monthly board report — 1st of each month at 7:00 AM
-  activeCrons.push(cron.schedule("0 7 1 * *", () => {
-    console.log("[Runway] Monthly board report triggered");
-    runMonthlyBoardReport().catch(err => console.error("[Runway] Monthly board report error:", err));
-  }));
+  activeCrons.push(cron.schedule("0 7 1 * *", cronJob("monthly-board-report", () => runMonthlyBoardReport())));
 
   console.log("[Runway] Scheduler registered — use Settings → Schedule to customize.");
 }
 
 // ── Monthly Board Report ─────────────────────────────────────────
-// 1st of every month at 7:00 AM — generates PDF and emails it.
+// 1st of every month at 7:00 AM — fetches live data and emails a
+// link to the board report page (user downloads PDF from there).
 export async function runMonthlyBoardReport(): Promise<void> {
   if (!process.env.RESEND_API_KEY || !process.env.USER_EMAIL) {
     console.log("[Runway] Monthly board report skipped — RESEND_API_KEY or USER_EMAIL not set.");
@@ -365,40 +375,78 @@ export async function runMonthlyBoardReport(): Promise<void> {
   }
 
   const user = await prisma.user.findFirst({ orderBy: { createdAt: "asc" } });
-  if (!user) { console.log("[Runway] Monthly board report: no user found."); return; }
+  if (!user) throw new Error("No user found — cannot generate board report.");
 
-  try {
-    const data = await getBoardReportData(user.id);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const buffer = await renderToBuffer(React.createElement(BoardReportPdf, { data }) as any);
+  const data    = await getBoardReportData(user.id);
+  const orgName = data.org?.name ?? "Runway";
+  const month   = new Date().toLocaleString("en-US", { month: "long", year: "numeric" });
+  const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+  const url     = `${baseUrl}/board-report`;
 
-    const orgName  = data.org?.name ?? "Runway";
-    const slug     = `${orgName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-board-report-${data.reportPeriod}`;
-    const month    = new Date().toLocaleString("en-US", { month: "long", year: "numeric" });
+  const net      = data.financial.netPosition;
+  const netColor = net >= 0 ? "#34C759" : "#FF3B30";
+  const netStr   = `${net >= 0 ? "+" : ""}$${Math.abs(net).toLocaleString()}`;
 
-    await getResend().emails.send({
-      from: "Runway <onboarding@resend.dev>",
-      to:   process.env.USER_EMAIL,
-      subject: `${orgName} Board Report — ${month}`,
-      html: `
-        <div style="font-family:-apple-system,sans-serif;max-width:560px;margin:0 auto;padding:24px">
-          <h2 style="color:#1D1D1F;margin:0 0 8px">Monthly Board Report</h2>
-          <p style="color:#6E6E73;margin:0 0 16px">${month} · auto-generated by Runway</p>
-          <p style="color:#3C3C43;font-size:14px">
-            Net position: <strong style="color:${data.financial.netPosition >= 0 ? "#34C759" : "#FF3B30"}">
-              ${data.financial.netPosition >= 0 ? "+" : ""}$${Math.abs(data.financial.netPosition).toLocaleString()}
-            </strong> &nbsp;·&nbsp;
-            Reserve: <strong>$${data.financial.reserveBalance.toLocaleString()}</strong>
-          </p>
-          <p style="color:#8E8E93;font-size:12px;margin-top:24px">The full PDF report is attached.</p>
-        </div>`,
-      attachments: [{ filename: `${slug}.pdf`, content: buffer }],
-    });
+  const alertLines = [
+    data.compliance.overdueReminders > 0
+      ? `⚠ ${data.compliance.overdueReminders} compliance deadline${data.compliance.overdueReminders > 1 ? "s" : ""} overdue`
+      : null,
+    ...data.domains.expiringSoon.map(d => `⚠ ${d.name} expires in ${d.days} days`),
+  ].filter(Boolean);
 
-    console.log(`[Runway] Monthly board report sent for ${month}.`);
-  } catch (err) {
-    console.error("[Runway] Monthly board report failed:", err);
-  }
+  await getResend().emails.send({
+    from: "Runway <onboarding@resend.dev>",
+    to:   process.env.USER_EMAIL,
+    subject: `${orgName} Board Report — ${month}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <body style="margin:0;padding:0;background:#F5F5F7;font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif">
+        <div style="max-width:560px;margin:32px auto">
+
+          <!-- Header -->
+          <div style="background:#1D1D1F;border-radius:16px 16px 0 0;padding:28px 32px">
+            <p style="margin:0;font-size:11px;font-weight:700;color:#8E8E93;letter-spacing:1.5px;text-transform:uppercase">${orgName}</p>
+            <h1 style="margin:6px 0 2px;font-size:22px;font-weight:700;color:#fff">Monthly Board Report</h1>
+            <p style="margin:0;font-size:13px;color:#8E8E93">${month} · auto-generated by Runway</p>
+          </div>
+
+          <!-- Stats -->
+          <div style="background:#fff;padding:24px 32px;display:flex;gap:0">
+            <div style="flex:1;padding-right:20px;border-right:1px solid #F0F0F0">
+              <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#8E8E93;text-transform:uppercase;letter-spacing:0.8px">Net Position</p>
+              <p style="margin:0;font-size:24px;font-weight:800;color:${netColor}">${netStr}</p>
+            </div>
+            <div style="flex:1;padding:0 20px;border-right:1px solid #F0F0F0">
+              <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#8E8E93;text-transform:uppercase;letter-spacing:0.8px">Reserve Fund</p>
+              <p style="margin:0;font-size:24px;font-weight:800;color:#FF9500">$${data.financial.reserveBalance.toLocaleString()}</p>
+            </div>
+            <div style="flex:1;padding-left:20px">
+              <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#8E8E93;text-transform:uppercase;letter-spacing:0.8px">Grants</p>
+              <p style="margin:0;font-size:24px;font-weight:800;color:#34C759">${data.grants.total} apps</p>
+            </div>
+          </div>
+
+          ${alertLines.length > 0 ? `
+          <!-- Alerts -->
+          <div style="background:#FFF2F2;border-left:4px solid #FF3B30;padding:14px 24px">
+            ${alertLines.map(l => `<p style="margin:2px 0;font-size:13px;color:#C0392B">${l}</p>`).join("")}
+          </div>` : ""}
+
+          <!-- CTA -->
+          <div style="background:#fff;padding:28px 32px;border-radius:0 0 16px 16px;text-align:center">
+            <a href="${url}" style="display:inline-block;background:#1D1D1F;color:#fff;text-decoration:none;font-size:15px;font-weight:600;padding:14px 32px;border-radius:12px">
+              View Full Report &amp; Download PDF →
+            </a>
+            <p style="margin:16px 0 0;font-size:12px;color:#8E8E93">
+              Opens the live board report — data reflects current state at the time you open it.
+            </p>
+          </div>
+
+        </div>
+      </body>
+      </html>`,
+  });
 }
 
 /** Reload schedule from DB and restart crons (called when user saves schedule settings) */
