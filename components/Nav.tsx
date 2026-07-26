@@ -108,7 +108,7 @@ export default function Nav() {
       </div>
 
       {/* Center: nav links */}
-      <div style={{ display: "flex", gap: 4 }}>
+      <div style={{ display: "flex", gap: 4, overflowX: "auto", scrollbarWidth: "none", msOverflowStyle: "none" }}>
         {links.map((l) => (
           <Link
             key={l.href}
