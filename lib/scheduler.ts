@@ -436,10 +436,10 @@ export async function runMonthlyBoardReport(): Promise<void> {
           <!-- CTA -->
           <div style="background:#fff;padding:28px 32px;border-radius:0 0 16px 16px;text-align:center">
             <a href="${url}" style="display:inline-block;background:#1D1D1F;color:#fff;text-decoration:none;font-size:15px;font-weight:600;padding:14px 32px;border-radius:12px">
-              View Full Report &amp; Download PDF →
+              View Full Report →
             </a>
             <p style="margin:16px 0 0;font-size:12px;color:#8E8E93">
-              Opens the live board report — data reflects current state at the time you open it.
+              Opens the live board report with current data. Use the Download PDF button on that page to save a snapshot.
             </p>
           </div>
 
