@@ -41,6 +41,7 @@ const nextConfig: NextConfig = {
     "node-cron",
     "imapflow",
     "pdfkit",
+    "@react-pdf/renderer",
   ],
   async headers() {
     return [
