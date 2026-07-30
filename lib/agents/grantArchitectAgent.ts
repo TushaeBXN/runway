@@ -56,7 +56,7 @@ Search the internet for real, currently open grant opportunities for our Winston
 
   while (attempts < maxAttempts) {
     try {
-      rawText = await callLLMWithSearch(systemPrompt, userMessage, 8192);
+      rawText = await callLLMWithSearch(systemPrompt, userMessage, 8192, { taskType: "grant_writing" });
       output = parseJSON<GrantArchitectOutput>(rawText);
       break;
     } catch (err) {

@@ -40,20 +40,21 @@ export interface LLMConfig {
   geminiKey?: string;
   ollamaHost?: string;
   ollamaModel?: string;
-  modelOverride?: string; // explicit model name — overrides tier defaults
-  json?: boolean; // false = plain text (Ollama won't force JSON format)
+  modelOverride?: string;     // explicit model name — takes precedence over everything
+  json?: boolean;             // false = plain text (Ollama won't force JSON format)
   // Abacus.ai
   abacusApiKey?: string;
   abacusEndpoint?: string;
-  taskComplexity?: TaskComplexity; // hint for Abacus smart routing
+  taskComplexity?: TaskComplexity; // fallback hint when no taskType set
+  taskType?: import("./modelRouter").TaskType; // preferred: drives cross-model routing
 }
 
-// Abacus smart model routing — maps task complexity to the right model
-const ABACUS_MODEL_MAP: Record<TaskComplexity, string> = {
-  simple:   "llama-3.3-70b",       // fast, great for routing / status / casual
-  medium:   "claude-3-5-haiku",    // balanced for drafts, emails, support
-  complex:  "claude-3-5-sonnet",   // best for grants, financial analysis
-  research: "claude-3-5-sonnet",   // research needs frontier reasoning
+// Abacus complexity fallback (used when no taskType is specified)
+const ABACUS_COMPLEXITY_MAP: Record<TaskComplexity, string> = {
+  simple:   "claude-3-5-haiku",   // light tasks → Haiku
+  medium:   "claude-3-5-haiku",   // drafts, emails → Haiku
+  complex:  "claude-3-5-sonnet",  // grants, finance → Claude
+  research: "claude-3-5-sonnet",  // research → Claude
 };
 
 /**
@@ -249,8 +250,16 @@ async function callAbacus(
   if (!apiKey) throw new Error("Abacus.ai API key not configured");
 
   const baseUrl = (config?.abacusEndpoint ?? process.env.ABACUS_ENDPOINT ?? "https://apps.abacus.ai/api/v0").replace(/\/$/, "");
-  const complexity = config?.taskComplexity ?? "medium";
-  const model = config?.modelOverride ?? ABACUS_MODEL_MAP[complexity];
+
+  // Model resolution order: explicit override → task type → complexity fallback
+  let model = config?.modelOverride;
+  if (!model && config?.taskType) {
+    const { TASK_ROUTES } = await import("./modelRouter");
+    model = TASK_ROUTES[config.taskType]?.abacusModel;
+  }
+  if (!model) {
+    model = ABACUS_COMPLEXITY_MAP[config?.taskComplexity ?? "medium"];
+  }
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
@@ -330,6 +339,8 @@ export async function callLLMWithSearch(
   if (provider === "ollama") return callOllama(systemPrompt, userMessage, config);
   if (provider === "openai") return callOpenAI(systemPrompt, userMessage, maxTokens, config);
   if (provider === "gemini") return callGemini(systemPrompt, userMessage, maxTokens, config);
+  // Abacus doesn't support native web search tools — fall back to plain completion
+  if (provider === "abacus") return callAbacus(systemPrompt, userMessage, maxTokens, config);
   return _callAnthropicWithSearch(systemPrompt, userMessage, maxTokens, config);
 }
 

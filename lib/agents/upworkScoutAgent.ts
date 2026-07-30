@@ -70,7 +70,7 @@ Return valid JSON only.`;
   let status = "success";
 
   try {
-    rawText = await callLLMWithSearch(systemPrompt, userMessage, 6144);
+    rawText = await callLLMWithSearch(systemPrompt, userMessage, 6144, { taskType: "light_task" });
     output = parseJSON<UpworkScoutOutput>(rawText);
   } catch (err) {
     status = "error";

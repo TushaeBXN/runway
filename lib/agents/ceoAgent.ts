@@ -49,7 +49,7 @@ Evaluate the organization's current state and provide tonight's priorities and d
   let status = "success";
 
   try {
-    rawText = await callLLM(systemPrompt, userMessage);
+    rawText = await callLLM(systemPrompt, userMessage, 512, { taskType: "light_task" });
     output = parseJSON<CEOOutput>(rawText);
   } catch (err) {
     status = "error";

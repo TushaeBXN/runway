@@ -60,7 +60,7 @@ Produce the complete, client-ready deliverable now. Do not describe what you wil
     let rawText = "";
 
     try {
-      rawText = await callLLM(systemPrompt, userMessage, 4096);
+      rawText = await callLLM(systemPrompt, userMessage, 4096, { taskType: "coding" });
       const parsed = parseJSON<{ deliverable: string; status: string }>(rawText);
       deliverable = parsed.deliverable || rawText;
       jobStatus = "completed";

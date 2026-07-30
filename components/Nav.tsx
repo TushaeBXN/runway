@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 
 const links = [
@@ -28,27 +28,10 @@ const links = [
   { href: "/chat", label: "Chat" },
 ];
 
-interface ProviderInfo {
-  provider: string;
-  model: string;
-  status: string;
-}
-
 export default function Nav() {
   const pathname = usePathname();
   const { data: session } = useSession();
-  const [providerInfo, setProviderInfo] = useState<ProviderInfo | null>(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/provider")
-      .then((r) => r.json())
-      .then(setProviderInfo)
-      .catch(() => null);
-  }, []);
-
-  const isOllama = providerInfo?.provider === "ollama";
-  const modelShort = providerInfo?.model?.split(":")[0] ?? "";
 
   const userInitial = session?.user?.name
     ? session.user.name[0].toUpperCase()
@@ -75,8 +58,8 @@ export default function Nav() {
         padding: "0 24px",
       }}
     >
-      {/* Left: wordmark + model badge */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      {/* Left: wordmark */}
+      <div style={{ display: "flex", alignItems: "center" }}>
         <Link
           href="/dashboard"
           style={{
@@ -89,22 +72,6 @@ export default function Nav() {
         >
           Runway
         </Link>
-        {providerInfo && (
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              color: "#6E6E73",
-              background: "#F0F0F0",
-              borderRadius: 6,
-              padding: "2px 8px",
-              letterSpacing: 0.2,
-            }}
-            title={`LLM: ${providerInfo.provider} / ${providerInfo.model}`}
-          >
-            {isOllama ? `⬡ ${modelShort}` : `◆ ${modelShort}`}
-          </span>
-        )}
       </div>
 
       {/* Center: nav links */}

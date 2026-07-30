@@ -82,7 +82,7 @@ Return JSON: { "report": "..." }`;
   let report = `Hardware fund at $${totalEarned.toFixed(2)} — ${progressToNextTier}% toward ${nextTier?.label ?? "final tier"}.`;
 
   try {
-    const raw = await callLLM(systemPrompt, userMessage, 512);
+    const raw = await callLLM(systemPrompt, userMessage, 512, { taskType: "financial" });
     const parsed = parseJSON<{ report: string }>(raw);
     report = parsed.report || report;
   } catch {

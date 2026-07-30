@@ -27,7 +27,7 @@ Create social media content that promotes our technology and education mission i
   let status = "success";
 
   try {
-    rawText = await callLLM(systemPrompt, userMessage);
+    rawText = await callLLM(systemPrompt, userMessage, 1024, { taskType: "social_content" });
     output = parseJSON<MarketingOutput>(rawText);
   } catch (err) {
     status = "error";

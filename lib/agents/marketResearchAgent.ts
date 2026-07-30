@@ -79,7 +79,7 @@ Return a complete JSON market research report.`;
   let rawText = "";
 
   try {
-    rawText = await callLLMWithSearch(systemPrompt, userMessage, 8192);
+    rawText = await callLLMWithSearch(systemPrompt, userMessage, 8192, { taskType: "research" });
     output = parseJSON<MarketResearchOutput>(rawText);
   } catch (err) {
     console.error("[MarketResearchAgent] LLM call failed:", err);

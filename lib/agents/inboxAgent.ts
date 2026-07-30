@@ -68,7 +68,7 @@ export async function runInboxAgent(
   let status = "success";
 
   try {
-    rawText = await callLLM(systemPrompt, userMessage);
+    rawText = await callLLM(systemPrompt, userMessage, 1024, { taskType: "email_draft" });
     output = parseJSON<InboxOutput>(rawText);
   } catch (err) {
     status = "error";

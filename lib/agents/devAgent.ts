@@ -20,7 +20,7 @@ Review the Runway platform and identify the top 5 code improvements or fixes nee
   let status = "success";
 
   try {
-    rawText = await callLLM(systemPrompt, userMessage);
+    rawText = await callLLM(systemPrompt, userMessage, 4096, { taskType: "coding" });
     output = parseJSON<DevTask[]>(rawText);
   } catch (err) {
     status = "error";

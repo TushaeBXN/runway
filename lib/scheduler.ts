@@ -12,7 +12,7 @@ import { getResend } from "@/lib/resend";
 import { getBoardReportData } from "@/lib/boardReportData";
 import { getProvider } from "@/lib/llm";
 import { DEFAULT_SCHEDULE, toCronExpressions, type ScheduleConfig } from "@/lib/agentSchedule";
-import { routeModel, buildAgentContext, AGENT_COMPLEXITY } from "@/lib/modelRouter";
+import { buildAgentContext } from "@/lib/modelRouter";
 import {
   agentWakeUp,
   agentRemember,
