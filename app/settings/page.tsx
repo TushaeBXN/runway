@@ -15,6 +15,7 @@ interface OrgProfile {
 
 interface SubscriptionData {
   status: string;
+  currentTier?: string;
   trialEndsAt?: string;
   currentPeriodEnd?: string;
   stripePriceId?: string;
@@ -378,8 +379,17 @@ function SettingsContent() {
   const subStatus = data.subscription?.status ?? "none";
   const isTrialing = subStatus === "trialing";
   const isActive = subStatus === "active";
+  const currentTier = data.subscription?.currentTier ?? "free";
   const trialEnd = data.subscription?.trialEndsAt ? new Date(data.subscription.trialEndsAt) : null;
   const trialDaysLeft = trialEnd ? Math.max(0, Math.ceil((trialEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : 0;
+
+  const TIER_META: Record<string, { label: string; color: string; bg: string; next?: string; nextLabel?: string }> = {
+    free:       { label: "Basic (Free)",   color: "#6E6E73",  bg: "#F5F5F7",             next: "standard", nextLabel: "Upgrade to Standard — $49/mo" },
+    standard:   { label: "Standard",       color: "#007AFF",  bg: "rgba(0,122,255,0.1)", next: "pro",      nextLabel: "Upgrade to Pro — $149/quarter" },
+    pro:        { label: "Pro",            color: "#34C759",  bg: "rgba(52,199,89,0.1)",  next: undefined },
+    enterprise: { label: "Enterprise",     color: "#5856D6",  bg: "rgba(88,86,214,0.1)", next: undefined },
+  };
+  const tierMeta = TIER_META[currentTier] ?? TIER_META.free;
   const focusAreas: string[] = data.orgProfile?.focusAreas ? JSON.parse(data.orgProfile.focusAreas) : [];
 
   return (
@@ -719,35 +729,73 @@ function SettingsContent() {
           </div>
         </Card>
 
-        {/* ── Subscription ── */}
+        {/* ── Plan ── */}
         <Card>
-          <SectionLabel>Subscription</SectionLabel>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                <span style={{ display: "inline-block", background: isActive ? "#34C759" : isTrialing ? "#FF9500" : "#8E8E93", color: "#fff", fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                  {isActive ? "Pro" : isTrialing ? "Trial" : subStatus}
-                </span>
-              </div>
-              {isTrialing && trialEnd && <p style={{ fontSize: 14, color: "#6E6E73" }}>{trialDaysLeft > 0 ? `${trialDaysLeft} days remaining` : "Trial expired"}</p>}
-              {isActive && data.subscription?.currentPeriodEnd && <p style={{ fontSize: 14, color: "#6E6E73" }}>Renews {new Date(data.subscription.currentPeriodEnd).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</p>}
-              {!isActive && !isTrialing && <p style={{ fontSize: 14, color: "#6E6E73" }}>No active subscription</p>}
-            </div>
-            <div style={{ display: "flex", gap: 10 }}>
-              {!isActive && (
-                <button onClick={async () => { const res = await fetch("/api/stripe/checkout", { method: "POST" }); const json = await res.json(); if (json.url) window.location.href = json.url; }}
-                  style={{ background: "#34C759", color: "#fff", border: "none", borderRadius: 10, padding: "10px 18px", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
-                  Upgrade to Pro
-                </button>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <SectionLabel>Plan</SectionLabel>
+            <a href="/pricing" style={{ fontSize: 13, color: "#007AFF", textDecoration: "none", fontWeight: 500 }}>View all plans →</a>
+          </div>
+
+          {/* Current tier badge */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", background: tierMeta.bg, borderRadius: 12, marginBottom: 16 }}>
+            <span style={{ display: "inline-block", background: tierMeta.color, color: "#fff", fontSize: 12, fontWeight: 700, padding: "4px 12px", borderRadius: 20, letterSpacing: 0.3 }}>
+              {tierMeta.label}
+            </span>
+            <div style={{ flex: 1 }}>
+              {isTrialing && trialEnd && (
+                <p style={{ fontSize: 13, color: "#6E6E73", margin: 0 }}>
+                  {trialDaysLeft > 0 ? `Free trial — ${trialDaysLeft} days remaining` : "Trial expired"}
+                </p>
               )}
-              {isActive && (
-                <button onClick={async () => { setPortalLoading(true); const res = await fetch("/api/stripe/portal", { method: "POST" }); const json = await res.json(); setPortalLoading(false); if (json.url) window.location.href = json.url; }}
-                  disabled={portalLoading}
-                  style={{ background: portalLoading ? "#E5E5EA" : "#1D1D1F", color: portalLoading ? "#8E8E93" : "#fff", border: "none", borderRadius: 10, padding: "10px 18px", fontSize: 14, fontWeight: 600, cursor: portalLoading ? "not-allowed" : "pointer" }}>
-                  {portalLoading ? "Loading…" : "Manage Subscription"}
-                </button>
+              {isActive && data.subscription?.currentPeriodEnd && (
+                <p style={{ fontSize: 13, color: "#6E6E73", margin: 0 }}>
+                  Renews {new Date(data.subscription.currentPeriodEnd).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                </p>
+              )}
+              {!isActive && !isTrialing && (
+                <p style={{ fontSize: 13, color: "#6E6E73", margin: 0 }}>No active subscription</p>
               )}
             </div>
+          </div>
+
+          {/* Actions */}
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            {tierMeta.next && (
+              <button
+                onClick={async () => {
+                  const res = await fetch("/api/stripe/checkout", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ tier: tierMeta.next }),
+                  });
+                  const json = await res.json();
+                  if (json.url) window.location.href = json.url;
+                }}
+                style={{ background: tierMeta.color, color: "#fff", border: "none", borderRadius: 10, padding: "10px 18px", fontSize: 14, fontWeight: 600, cursor: "pointer" }}
+              >
+                {tierMeta.nextLabel}
+              </button>
+            )}
+            {isActive && (
+              <button
+                onClick={async () => {
+                  setPortalLoading(true);
+                  const res = await fetch("/api/stripe/portal", { method: "POST" });
+                  const json = await res.json();
+                  setPortalLoading(false);
+                  if (json.url) window.location.href = json.url;
+                }}
+                disabled={portalLoading}
+                style={{ background: portalLoading ? "#E5E5EA" : "#F5F5F7", color: portalLoading ? "#8E8E93" : "#1D1D1F", border: "1.5px solid #E5E5EA", borderRadius: 10, padding: "10px 18px", fontSize: 14, fontWeight: 600, cursor: portalLoading ? "not-allowed" : "pointer" }}
+              >
+                {portalLoading ? "Loading…" : "Manage Billing"}
+              </button>
+            )}
+            {currentTier === "enterprise" && (
+              <a href="mailto:hello@runway.ai?subject=Enterprise%20Support" style={{ display: "inline-block", padding: "10px 18px", fontSize: 14, fontWeight: 600, color: "#5856D6", background: "rgba(88,86,214,0.08)", borderRadius: 10, textDecoration: "none" }}>
+                Contact Success Team
+              </a>
+            )}
           </div>
         </Card>
 

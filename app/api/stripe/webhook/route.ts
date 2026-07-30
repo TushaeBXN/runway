@@ -32,6 +32,7 @@ export async function POST(req: Request) {
       if (session.mode !== "subscription") break;
       const customerId = session.customer as string;
       const subscriptionId = session.subscription as string;
+      const tier = (session.metadata as Record<string, string> | null)?.tier || "standard";
       const subscription = await stripe.subscriptions.retrieve(subscriptionId);
       const sub = subscription as unknown as { current_period_end: number; items: { data: { price: { id: string } }[] }; status: string };
       await prisma.subscription.updateMany({
@@ -40,6 +41,7 @@ export async function POST(req: Request) {
           stripeSubscriptionId: subscriptionId,
           stripePriceId: sub.items.data[0]?.price.id,
           status: sub.status,
+          currentTier: tier,
           currentPeriodEnd: new Date(sub.current_period_end * 1000),
         },
       });
@@ -49,12 +51,20 @@ export async function POST(req: Request) {
       const subscription = event.data.object as Stripe.Subscription;
       const customerId = subscription.customer as string;
       const sub = subscription as unknown as { current_period_end: number; id: string; items: { data: { price: { id: string } }[] }; status: string };
+      const priceId = sub.items.data[0]?.price.id;
+      const tier =
+        priceId === process.env.STRIPE_PRICE_PRO
+          ? "pro"
+          : priceId === process.env.STRIPE_PRICE_STANDARD
+          ? "standard"
+          : "free";
       await prisma.subscription.updateMany({
         where: { stripeCustomerId: customerId },
         data: {
           stripeSubscriptionId: sub.id,
-          stripePriceId: sub.items.data[0]?.price.id,
+          stripePriceId: priceId,
           status: sub.status,
+          currentTier: tier,
           currentPeriodEnd: new Date(sub.current_period_end * 1000),
         },
       });
@@ -65,7 +75,7 @@ export async function POST(req: Request) {
       const customerId = subscription.customer as string;
       await prisma.subscription.updateMany({
         where: { stripeCustomerId: customerId },
-        data: { status: "canceled", stripeSubscriptionId: null },
+        data: { status: "canceled", currentTier: "free", stripeSubscriptionId: null },
       });
       break;
     }

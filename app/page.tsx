@@ -105,6 +105,19 @@ export default function LandingPage() {
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <Link
+            href="/pricing"
+            style={{
+              fontSize: 14,
+              fontWeight: 500,
+              color: "rgba(255,255,255,0.7)",
+              textDecoration: "none",
+              padding: "7px 14px",
+              borderRadius: 8,
+            }}
+          >
+            Pricing
+          </Link>
+          <Link
             href="/login"
             style={{
               fontSize: 14,

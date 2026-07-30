@@ -32,6 +32,7 @@ model User {
   scheduledPosts     ScheduledPost[]
   grantApplications  GrantApplication[]
   passwordResetTokens PasswordResetToken[]
+  budgets            Budget[]
 }
 
 model OrgProfile {
@@ -102,6 +103,7 @@ model Subscription {
   stripeSubscriptionId String?
   stripePriceId        String?
   status               String    @default("trialing")
+  currentTier          String    @default("free")
   trialEndsAt          DateTime?
   currentPeriodEnd     DateTime?
   createdAt            DateTime  @default(now())
@@ -524,4 +526,25 @@ model PasswordResetToken {
   expiresAt DateTime
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Budget {
+  id         String           @id @default(cuid())
+  userId     String
+  name       String           @default("Operating Budget")
+  fiscalYear Int
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lineItems  BudgetLineItem[]
+}
+
+model BudgetLineItem {
+  id       String @id @default(cuid())
+  budgetId String
+  category String
+  type     String  // "income" | "expense"
+  label    String
+  planned  Float
+  budget   Budget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
 }

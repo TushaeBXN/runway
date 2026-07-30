@@ -11,12 +11,25 @@ function getStripe() {
   });
 }
 
-export async function POST() {
+const TIER_PRICES: Record<string, string | undefined> = {
+  standard: process.env.STRIPE_PRICE_STANDARD,
+  pro: process.env.STRIPE_PRICE_PRO,
+};
+
+export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const userId = (session.user as { id: string }).id;
+  const body = await req.json().catch(() => ({}));
+  const tier: string = body.tier || "standard";
+
+  const priceId = TIER_PRICES[tier];
+  if (!priceId) {
+    return NextResponse.json({ error: `No price configured for tier: ${tier}` }, { status: 400 });
+  }
+
   const user = await prisma.user.findUnique({
     where: { id: userId },
     include: { subscription: true },
@@ -41,9 +54,10 @@ export async function POST() {
   const checkoutSession = await stripe.checkout.sessions.create({
     customer: customerId,
     mode: "subscription",
-    line_items: [{ price: process.env.STRIPE_PRICE_ID, quantity: 1 }],
+    line_items: [{ price: priceId, quantity: 1 }],
     success_url: `${process.env.NEXTAUTH_URL}/dashboard?upgraded=true`,
     cancel_url: `${process.env.NEXTAUTH_URL}/pricing`,
+    metadata: { tier },
   });
 
   return NextResponse.json({ url: checkoutSession.url });
